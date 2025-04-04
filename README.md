@@ -1,5 +1,6 @@
-# obsidian-synonym
-Obsidian plugin för svenska synonymer
+# Synonym
+Obsidian plugin för svenska synonymer.
+Obsidian plugin for swedish synonyms.
 
 ## Usage
 Once installed, the plugin must also be activated to be available in the ribbon. 
