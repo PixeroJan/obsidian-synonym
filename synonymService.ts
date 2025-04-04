@@ -1,5 +1,4 @@
-/// <reference lib="dom" />
-/// <reference path="./swedishSynonyms.d.ts" />
+
 import { requestUrl, RequestUrlResponse } from 'obsidian';
 import { SynonymerSettings } from './settings';
 import { fullSwedishDictionary } from './swedishSynonyms';
