@@ -1,0 +1,8 @@
+{
+  "enableOnlineLookup": true,
+  "apiSource": "svenskaSe",
+  "apiKey": "",
+  "maxSynonyms": 15,
+  "fallbackToLocalDictionary": true,
+  "alwaysTryOnline": true
+}

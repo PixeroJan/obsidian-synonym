@@ -1,0 +1,56 @@
+.synonymer-menu-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  width: 100%;
+  text-align: left;
+}
+
+.synonymer-menu-item:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-accent);
+}
+
+.synonymer-notice {
+  font-size: 14px;
+  padding: 8px;
+  background-color: var(--background-primary);
+  border-left: 4px solid var(--text-accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.synonymer-loading {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 8px;
+  border: 2px solid var(--text-accent);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: synonymer-spin 1s linear infinite;
+}
+
+@keyframes synonymer-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Style for right-click menu item */
+.menu-item .synonym-icon svg {
+  color: var(--text-accent);
+}
+
+/* Style for the ribbon icon */
+.side-dock-ribbon-action[aria-label="Synonymer"] {
+  color: var(--text-accent);
+}
+
+/* Synonym Plugin Custom Styles */
+
+/* Make the toolbar icon black and white */
+.side-dock-ribbon-action[aria-label="Synonymer"] svg {
+  color: var(--icon-color) !important;
+}
