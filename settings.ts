@@ -3,15 +3,13 @@ export interface SynonymerSettings {
     apiSource: string;
     apiKey: string;
     maxSynonyms: number;
-    fallbackToLocalDictionary: boolean; // Use local dictionary as fallback
-    alwaysTryOnline: boolean; // Always try online even if local synonyms are found
+    selectedLanguage: string;
 }
 
 export const DEFAULT_SETTINGS: SynonymerSettings = {
     enableOnlineLookup: true,
-    apiSource: 'svenskaSe',
+    apiSource: 'thesaurus_com',
     apiKey: '',
     maxSynonyms: 10,
-    fallbackToLocalDictionary: true,
-    alwaysTryOnline: false
+    selectedLanguage: 'en_US'
 }

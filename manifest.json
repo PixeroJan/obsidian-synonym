@@ -1,10 +1,8 @@
-{
-  "id": "synonym",
-  "name": "Svenska Synonymer",
-  "version": "1.0.0",
-  "minAppVersion": "0.12.0",
-  "description": "Synonymer för svenska ord. Synonyms for swedish words.",
-  "author": "Jan Sandstrom",
-  "authorUrl": "https://www.pixero.com",
-  "isDesktopOnly": false
-}
+{"id":"synonym",
+"name":"Synonymer",
+"version":"1.0.1",
+"minAppVersion":"0.12.0",
+"description":"Synonymer för svenska ord. Synonyms for swedish words.",
+"author":"Jan Sandstrom",
+"authorUrl":"https://github.com/PixeroJan",
+"isDesktopOnly":false}

@@ -1,8 +1,10 @@
 {
   "enableOnlineLookup": true,
-  "apiSource": "svenskaSe",
+  "apiSource": "svenska_se",
   "apiKey": "",
-  "maxSynonyms": 15,
+  "maxSynonyms": 25,
+  "selectedLanguage": "sv_SE",
+  "alwaysTryOnline": true,
   "fallbackToLocalDictionary": true,
-  "alwaysTryOnline": true
+  "filterVulgar": false
 }

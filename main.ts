@@ -1,23 +1,93 @@
-import { Editor, MarkdownFileInfo, MarkdownView, Notice, Plugin, PluginSettingTab, Setting, Menu } from 'obsidian';
+import { Editor, MarkdownFileInfo, MarkdownView, Notice, Plugin, PluginSettingTab, Setting, Menu, Modal, App } from 'obsidian';
 import { SynonymerSettings, DEFAULT_SETTINGS } from './settings';
 import { SynonymService } from './synonymService';
 // Import without .js extension for TypeScript compatibility
-import { fullSwedishDictionary } from './swedishSynonyms';
+import { AssetDictionaryLoader } from './assetDictionaryLoader';
+import { CustomDictionaryManager } from './customDictionaryManager';
+
+// Add a new modal class for adding synonyms
+class AddSynonymModal extends Modal {
+	word: string;
+	onSubmit: (synonym: string) => void;
+
+	constructor(app: App, word: string, onSubmit: (synonym: string) => void) {
+		super(app);
+		this.word = word;
+		this.onSubmit = onSubmit;
+	}
+
+	onOpen() {
+		const { contentEl } = this;
+		
+		contentEl.createEl('h2', { text: `Add synonym for "${this.word}"` });
+
+		const inputEl = contentEl.createEl('input', {
+			type: 'text',
+			placeholder: 'Enter synonym...'
+		});
+		inputEl.style.width = '100%';
+		inputEl.style.marginBottom = '10px';
+
+		const buttonContainer = contentEl.createDiv();
+		buttonContainer.style.display = 'flex';
+		buttonContainer.style.justifyContent = 'flex-end';
+		buttonContainer.style.gap = '10px';
+
+		const cancelBtn = buttonContainer.createEl('button', { text: 'Cancel' });
+		cancelBtn.onclick = () => this.close();
+
+		const submitBtn = buttonContainer.createEl('button', { 
+			text: 'Add',
+			cls: 'mod-cta'
+		});
+		submitBtn.onclick = () => {
+			const synonym = inputEl.value.trim();
+			if (synonym) {
+				this.onSubmit(synonym);
+				this.close();
+			}
+		};
+
+		inputEl.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter') {
+				const synonym = inputEl.value.trim();
+				if (synonym) {
+					this.onSubmit(synonym);
+					this.close();
+				}
+			}
+		});
+
+		inputEl.focus();
+	}
+
+	onClose() {
+		const { contentEl } = this;
+		contentEl.empty();
+	}
+}
 
 export default class SynonymerPlugin extends Plugin {
 	settings!: SynonymerSettings;
 	synonymService!: SynonymService;
+	customManager!: CustomDictionaryManager;
 
 	async onload() {
-		// Add custom styles directly instead of loading external file
 		this.addStyles();
-		
 		await this.loadSettings();
 		
-		this.synonymService = new SynonymService(this.settings);
+		// Initialize custom dictionary manager - pass app instead of vault
+		this.customManager = new CustomDictionaryManager(this.app, this.manifest.dir!);
+		await this.customManager.load();
+		
+		// Load assets dictionary - pass app instead of vault
+		const assetLoader = new AssetDictionaryLoader(this.app, this.manifest.dir!);
+		const assetDict = await assetLoader.loadDictionary(this.settings.selectedLanguage);
+		
+		this.synonymService = new SynonymService(this.settings, assetDict, this.customManager);
 
 		// Add ribbon icon to the left sidebar - using Obsidian's built-in ClipboardType icon
-		this.addRibbonIcon('clipboard-list', 'Synonymer', (evt: MouseEvent) => {
+		this.addRibbonIcon('clipboard-list', 'Synonym', (evt: MouseEvent) => {
 			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 			if (view) {
 				const editor = view.editor;
@@ -25,27 +95,27 @@ export default class SynonymerPlugin extends Plugin {
 				if (selection) {
 					this.showSynonyms(selection, editor);
 				} else {
-					new Notice('Markera ett ord för att hitta synonymer');
+					new Notice('Select a word to find synonyms');
 				}
 			} else {
-				new Notice('Den här funktionen stöds endast i Markdown-vy');
+				new Notice('This feature only works in Markdown view');
 			}
 		});
 
 		// Add a command to show synonyms for the selected word
 		this.addCommand({
-			id: 'visa-synonymer',
-			name: 'Visa synonymer för markerat ord',
+			id: 'show-synonyms',
+			name: 'Show synonyms for selected word',
 			editorCallback: (editor: Editor, ctx: MarkdownView | MarkdownFileInfo) => {
 				if (ctx instanceof MarkdownView) {
 					const selection = editor.getSelection();
 					if (selection) {
 						this.showSynonyms(selection, editor);
 					} else {
-						new Notice('Markera ett ord för att hitta synonymer');
+						new Notice('Select a word to find synonyms');
 					}
 				} else {
-					new Notice('Den här funktionen stöds endast i Markdown-vy');
+					new Notice('This feature only works in Markdown view');
 				}
 			}
 		});
@@ -53,11 +123,26 @@ export default class SynonymerPlugin extends Plugin {
 		// Add editor context menu item (right-click menu)
 		this.registerEvent(
 			this.app.workspace.on('editor-menu', (menu: Menu, editor: Editor) => {
-				const selection = editor.getSelection();
+				let selection = editor.getSelection();
+
+				// If no selection, try to get word under cursor
+				if (!selection || selection.trim() === '') {
+					selection = this.getWordAtCursor(editor);
+				}
+
 				if (selection && selection.trim() !== '') {
+					// Add option to add custom synonym
+					menu.addItem((item) => {
+						item.setTitle('Lägg till synonym')
+							.setIcon('pencil') // Changed icon to verify visibility
+							.onClick(() => {
+								this.promptAddSynonym(selection);
+							});
+					});
+
 					menu.addItem((item) => {
 						item.setTitle('Hitta synonymer')
-							.setIcon('clipboard-list')
+							.setIcon('search')
 							.onClick(() => {
 								this.showSynonyms(selection, editor);
 							});
@@ -68,11 +153,49 @@ export default class SynonymerPlugin extends Plugin {
 
 		// Add settings tab
 		this.addSettingTab(new SynonymerSettingTab(this.app, this));
-		
-		// Testing output to help diagnose issues
-		console.log("Synonym plugin loaded successfully");
 	}
-	
+
+	getWordAtCursor(editor: Editor): string {
+		const cursor = editor.getCursor();
+		const line = editor.getLine(cursor.line);
+		
+		let start = cursor.ch;
+		let end = cursor.ch;
+		
+		// Word characters including Swedish/European characters and hyphens
+		const wordChar = /[\w\u00C0-\u00ff\-]/; 
+
+		// Walk backwards
+		while (start > 0 && wordChar.test(line.charAt(start - 1))) {
+			start--;
+		}
+		
+		// Walk forwards
+		while (end < line.length && wordChar.test(line.charAt(end))) {
+			end++;
+		}
+		
+		return line.slice(start, end);
+	}
+
+	async promptAddSynonym(word: string) {
+		new AddSynonymModal(this.app, word, async (synonym) => {
+			try {
+				await this.customManager.addSynonym(word, synonym);
+				
+				// Reload the synonym service to include the new custom synonym
+				const assetLoader = new AssetDictionaryLoader(this.app, this.manifest.dir!);
+				const assetDict = await assetLoader.loadDictionary(this.settings.selectedLanguage);
+				this.synonymService = new SynonymService(this.settings, assetDict, this.customManager);
+				
+				new Notice(`Added "${synonym}" as a synonym for "${word}"`);
+			} catch (error) {
+				console.error('Error adding synonym:', error);
+				new Notice('Could not add synonym: ' + (error instanceof Error ? error.message : 'Unknown error'));
+			}
+		}).open();
+	}
+
 	// Replace loadStyles with addStyles that adds CSS directly
 	addStyles() {
 		// Add styles directly to document
@@ -104,7 +227,7 @@ export default class SynonymerPlugin extends Plugin {
 			}
 			
 			/* Make the toolbar icon black and white */
-			.side-dock-ribbon-action[aria-label="Synonymer"] svg {
+			.side-dock-ribbon-action[aria-label="Synonym"] svg {
 			  color: var(--icon-color) !important;
 			}
 		`;
@@ -113,12 +236,12 @@ export default class SynonymerPlugin extends Plugin {
 
 	async showSynonyms(word: string, editor: Editor) {
 		try {
-			new Notice(`Söker efter synonymer för "${word}"...`, 2000);
+			new Notice(`Searching for synonyms for "${word}"...`, 2000);
 			
 			const synonyms = await this.synonymService.getSynonyms(word);
 			
 			if (synonyms.length === 0) {
-				new Notice(`Inga synonymer hittades för "${word}"`, 3000);
+				new Notice(`No synonyms found for "${word}"`, 3000);
 				return;
 			}
 
@@ -126,55 +249,33 @@ export default class SynonymerPlugin extends Plugin {
 				editor.replaceSelection(synonym);
 			});
 
-			 // Fix for iOS: Use safer selection coordinate detection
-			 let rect: { left: number; bottom: number; };
-        
-			 try {
-				 // Try to get coordinates from DOM selection if available
-				 const selection = window.getSelection();
-				 
-				 // Only access rangeAt(0) if there are ranges
-				 if (selection && selection.rangeCount > 0) {
-					 const range = selection.getRangeAt(0);
-					 const domRect = range.getBoundingClientRect();
-					 rect = { left: domRect.left, bottom: domRect.bottom };
-				 } else {
-					 // Fallback to editor cursor position
-					 throw new Error("No selection ranges available");
-				 }
-			 } catch (e) {
-				 // If anything goes wrong with DOM selection, use editor cursor as fallback
-				 console.log("Falling back to editor cursor for menu position");
-				 
-				 // Safe fallback for all platforms including iOS
-				 const pos = editor.getCursor();
-				 const editorOffset = { 
-					 top: 200, // Default if all else fails
-					 left: 100
-				 };
-				 
-				 // Try to get editor offset if possible
-				 try {
-					 const editorEl = editor.getScrollerElement();
-					 const editorRect = editorEl.getBoundingClientRect();
-					 editorOffset.top = editorRect.top;
-					 editorOffset.left = editorRect.left;
-				 } catch (err) {
-					 console.log("Couldn't get editor element position", err);
-				 }
-				 
-				 const lineHeight = 20; // Default line height in pixels
-				 
-				 rect = {
-					 left: editorOffset.left,
-					 bottom: editorOffset.top + ((pos.line + 1) * lineHeight)
-				 };
-			 }
-	 
-			 // Position menu with the safe coordinates
-			 menu.showAtPosition({ x: rect.left, y: rect.bottom });
+			// Fix for iOS: Use safer selection coordinate detection
+			let rect: { left: number; bottom: number; };
+			
+			try {
+				const selection = window.getSelection();
+				
+				if (selection && selection.rangeCount > 0) {
+					const range = selection.getRangeAt(0);
+					const domRect = range.getBoundingClientRect();
+					rect = { left: domRect.left, bottom: domRect.bottom };
+				} else {
+					throw new Error("No selection ranges available");
+				}
+			} catch (e) {
+				// Safe fallback without using getScrollerElement
+				const pos = editor.getCursor();
+				const lineHeight = 20;
+				
+				rect = {
+					left: 100,
+					bottom: 200 + ((pos.line + 1) * lineHeight)
+				};
+			}
+
+			menu.showAtPosition({ x: rect.left, y: rect.bottom });
 		} catch (error) {
-			console.error('Fel vid hämtning av synonymer:', error);
+			console.error('Error fetching synonyms:', error);
 			
 			// Better error handling for network errors
 			let errorMessage: string;
@@ -183,15 +284,15 @@ export default class SynonymerPlugin extends Plugin {
 				if (error.message.includes('ERR_NAME_NOT_RESOLVED') || 
 					error.message.includes('ERR_CONNECTION_REFUSED') ||
 					error.message.includes('NetworkError')) {
-					errorMessage = 'Kunde inte ansluta till synonymtjänsten. Kontrollera din internetanslutning.';
+					errorMessage = 'Could not connect to the synonym service. Check your internet connection.';
 				} else {
 					errorMessage = error.message;
 				}
 			} else {
-				errorMessage = 'Okänt fel';
+				errorMessage = 'Unknown error';
 			}
 			
-			new Notice(`Kunde inte hämta synonymer: ${errorMessage}`, 4000);
+			new Notice(`Could not fetch synonyms: ${errorMessage}`, 4000);
 		}
 	}
 
@@ -200,7 +301,7 @@ export default class SynonymerPlugin extends Plugin {
 		
 		// Show a header with count
 		menu.addItem((item) => {
-			item.setTitle(`Hittade ${synonyms.length} synonymer:`)
+			item.setTitle(`Found ${synonyms.length} synonyms:`)
 				.setDisabled(true);
 		});
 		
@@ -271,11 +372,39 @@ class SynonymerSettingTab extends PluginSettingTab {
 		const {containerEl} = this;
 		containerEl.empty();
 
-		containerEl.createEl('h2', {text: 'Inställningar för Synonymer'});
+		containerEl.createEl('h2', {text: 'Synonym Settings'});
+
+		// Language selection
+		new Setting(containerEl)
+			.setName('Dictionary language')
+			.setDesc('Select the language for the local synonym dictionary')
+			.addDropdown(async (dropdown) => {
+				const loader = new AssetDictionaryLoader(this.app, this.plugin.manifest.dir!);
+				const languages = await loader.getAvailableLanguages();
+				
+				// Add language options with better display names
+				if (languages.length === 0) {
+					dropdown.addOption('', 'No dictionaries found');
+				} else {
+					languages.forEach(lang => {
+						// Display language code as-is (e.g., sv_SE, en_US)
+						dropdown.addOption(lang, lang);
+					});
+				}
+				
+				dropdown.setValue(this.plugin.settings.selectedLanguage)
+					.onChange(async (value) => {
+						this.plugin.settings.selectedLanguage = value;
+						await this.plugin.saveSettings();
+						new Notice('Reload the plugin to use the new language');
+					});
+			});
+
+		// Removed vulgar language filter
 
 		new Setting(containerEl)
-			.setName('Aktivera online-sökning')
-			.setDesc('Sök efter synonymer online när de inte hittas i lokal ordlista')
+			.setName('Enable online lookup')
+			.setDesc('Search for additional synonyms from online sources to complement local dictionary')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enableOnlineLookup)
 				.onChange(async (value) => {
@@ -284,11 +413,11 @@ class SynonymerSettingTab extends PluginSettingTab {
 				}));
 			
 		new Setting(containerEl)
-			.setName('API-källa')
-			.setDesc('Välj vilken API-tjänst som ska användas för att hämta synonymer')
+			.setName('Online source')
+			.setDesc('Select which online service to use for additional synonyms')
 			.addDropdown(dropdown => dropdown
-				.addOption('svenskaSe', 'Svenska.se')
-				.addOption('synonymerSe', 'Synonymer.se (kräver API-nyckel)')
+				.addOption('thesaurus_com', 'Thesaurus.com (English)')
+				.addOption('svenska_se', 'Synonymer (Swedish)')
 				.setValue(this.plugin.settings.apiSource)
 				.onChange(async (value) => {
 					this.plugin.settings.apiSource = value;
@@ -296,46 +425,30 @@ class SynonymerSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('API-nyckel')
-			.setDesc('API-nyckel för synonymer.se (krävs endast om du valt Synonymer.se)')
+			.setName('API key')
+			.setDesc('API key for online service (if required by the selected source)')
 			.addText(text => text
-				.setPlaceholder('Ange API-nyckel')
+				.setPlaceholder('Enter API key')
 				.setValue(this.plugin.settings.apiKey)
 				.onChange(async (value) => {
 					this.plugin.settings.apiKey = value;
 					await this.plugin.saveSettings();
 				}));
 
+		// Removed 'Use local dictionary as fallback' - local dictionary is always the primary source
+		
 		new Setting(containerEl)
-			.setName('Använd lokal ordlista som reserv')
-			.setDesc('Om online-sökning misslyckas, använd lokal ordlista som reserv')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.fallbackToLocalDictionary)
-				.onChange(async (value) => {
-					this.plugin.settings.fallbackToLocalDictionary = value;
-					await this.plugin.saveSettings();
-					}));
-				
-		new Setting(containerEl)
-			.setName('Alltid försök online-sökning')
-			.setDesc('Sök online även om lokala synonymer hittas')
-			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.alwaysTryOnline)
-				.onChange(async (value) => {
-					this.plugin.settings.alwaysTryOnline = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName('Max antal synonymer')
-			.setDesc('Maximalt antal synonymer att visa')
+			.setName('Maximum synonyms')
+			.setDesc('Maximum number of synonyms to display')
 			.addSlider(slider => slider
-				.setLimits(3, 20, 1)
+				.setLimits(3, 25, 1)
 				.setValue(this.plugin.settings.maxSynonyms)
 				.setDynamicTooltip()
 				.onChange(async (value) => {
 					this.plugin.settings.maxSynonyms = value;
 					await this.plugin.saveSettings();
 				}));
+
+		// Custom synonyms section removed - see README for file location
 	}
 }
