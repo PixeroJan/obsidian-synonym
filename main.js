@@ -34,7 +34,8 @@ var DEFAULT_SETTINGS = {
   apiSource: "thesaurus_com",
   apiKey: "",
   maxSynonyms: 10,
-  selectedLanguage: "en_US"
+  selectedLanguage: "en_US",
+  uiLanguage: "en"
 };
 
 // synonymService.ts
@@ -741,19 +742,108 @@ var CustomDictionaryManager = class {
   }
 };
 
+// i18n.ts
+var en = {
+  synonym: "Synonym",
+  cancel: "Cancel",
+  add: "Add",
+  ribbonTooltip: "Synonym",
+  commandShowSynonyms: "Show synonyms for selected word",
+  contextAddSynonym: "Add synonym",
+  contextFindSynonyms: "Find synonyms",
+  addSynonymTitle: (word) => `Add synonym for "${word}"`,
+  addSynonymPlaceholder: "Enter synonym...",
+  selectWordNotice: "Select a word to find synonyms",
+  markdownOnlyNotice: "This feature only works in Markdown view",
+  searchingNotice: (word) => `Searching for synonyms for "${word}"...`,
+  noSynonymsNotice: (word) => `No synonyms found for "${word}"`,
+  foundSynonymsHeader: (count) => `Found ${count} synonyms:`,
+  synonymAddedNotice: (synonym, word) => `Added "${synonym}" as a synonym for "${word}"`,
+  couldNotAddSynonym: "Could not add synonym: ",
+  connectionError: "Could not connect to the synonym service. Check your internet connection.",
+  couldNotFetchSynonyms: "Could not fetch synonyms: ",
+  unknownError: "Unknown error",
+  reloadPluginNotice: "Reload the plugin to use the new language",
+  settingsHeading: "Synonym Settings",
+  uiLanguageName: "Interface language",
+  uiLanguageDesc: "Select the language for the plugin interface",
+  uiLanguageEnglish: "English",
+  uiLanguageSwedish: "Svenska",
+  dictLanguageName: "Dictionary language",
+  dictLanguageDesc: "Select the language for the local synonym dictionary",
+  noDictionariesFound: "No dictionaries found",
+  enableOnlineName: "Enable online lookup",
+  enableOnlineDesc: "Search for additional synonyms from online sources to complement local dictionary",
+  onlineSourceName: "Online source",
+  onlineSourceDesc: "Select which online service to use for additional synonyms",
+  onlineSourceThesaurus: "Thesaurus.com (English)",
+  onlineSourceSwedish: "Synonymer (Swedish)",
+  apiKeyName: "API key",
+  apiKeyDesc: "API key for online service (if required by the selected source)",
+  apiKeyPlaceholder: "Enter API key",
+  maxSynonymsName: "Maximum synonyms",
+  maxSynonymsDesc: "Maximum number of synonyms to display"
+};
+var sv = {
+  synonym: "Synonym",
+  cancel: "Avbryt",
+  add: "L\xE4gg till",
+  ribbonTooltip: "Synonym",
+  commandShowSynonyms: "Visa synonymer f\xF6r markerat ord",
+  contextAddSynonym: "L\xE4gg till synonym",
+  contextFindSynonyms: "Hitta synonymer",
+  addSynonymTitle: (word) => `L\xE4gg till synonym f\xF6r "${word}"`,
+  addSynonymPlaceholder: "Ange synonym...",
+  selectWordNotice: "Markera ett ord f\xF6r att hitta synonymer",
+  markdownOnlyNotice: "Den h\xE4r funktionen fungerar bara i Markdown-vy",
+  searchingNotice: (word) => `S\xF6ker efter synonymer f\xF6r "${word}"...`,
+  noSynonymsNotice: (word) => `Inga synonymer hittades f\xF6r "${word}"`,
+  foundSynonymsHeader: (count) => `Hittade ${count} synonymer:`,
+  synonymAddedNotice: (synonym, word) => `Lade till "${synonym}" som synonym f\xF6r "${word}"`,
+  couldNotAddSynonym: "Kunde inte l\xE4gga till synonym: ",
+  connectionError: "Kunde inte ansluta till synonymtj\xE4nsten. Kontrollera din internetanslutning.",
+  couldNotFetchSynonyms: "Kunde inte h\xE4mta synonymer: ",
+  unknownError: "Ok\xE4nt fel",
+  reloadPluginNotice: "Ladda om till\xE4gget f\xF6r att anv\xE4nda det nya spr\xE5ket",
+  settingsHeading: "Synonyminst\xE4llningar",
+  uiLanguageName: "Gr\xE4nssnittsspr\xE5k",
+  uiLanguageDesc: "V\xE4lj spr\xE5k f\xF6r till\xE4ggets gr\xE4nssnitt",
+  uiLanguageEnglish: "English",
+  uiLanguageSwedish: "Svenska",
+  dictLanguageName: "Ordlistans spr\xE5k",
+  dictLanguageDesc: "V\xE4lj spr\xE5k f\xF6r den lokala synonymordlistan",
+  noDictionariesFound: "Inga ordlistor hittades",
+  enableOnlineName: "Aktivera onlines\xF6kning",
+  enableOnlineDesc: "S\xF6k efter ytterligare synonymer fr\xE5n onlinek\xE4llor f\xF6r att komplettera lokal ordlista",
+  onlineSourceName: "Onlinek\xE4lla",
+  onlineSourceDesc: "V\xE4lj vilken onlinetj\xE4nst som ska anv\xE4ndas f\xF6r ytterligare synonymer",
+  onlineSourceThesaurus: "Thesaurus.com (engelska)",
+  onlineSourceSwedish: "Synonymer (svenska)",
+  apiKeyName: "API-nyckel",
+  apiKeyDesc: "API-nyckel f\xF6r onlinetj\xE4nst (om det kr\xE4vs av vald k\xE4lla)",
+  apiKeyPlaceholder: "Ange API-nyckel",
+  maxSynonymsName: "Maximalt antal synonymer",
+  maxSynonymsDesc: "Maximalt antal synonymer att visa"
+};
+var translations = { en, sv };
+function t(lang) {
+  return translations[lang] || translations.en;
+}
+
 // main.ts
 var AddSynonymModal = class extends import_obsidian4.Modal {
-  constructor(app, word, onSubmit) {
+  constructor(app, word, tr, onSubmit) {
     super(app);
     this.word = word;
+    this.tr = tr;
     this.onSubmit = onSubmit;
   }
   onOpen() {
     const { contentEl } = this;
-    contentEl.createEl("h2", { text: `Add synonym for "${this.word}"` });
+    contentEl.createEl("h2", { text: this.tr.addSynonymTitle(this.word) });
     const inputEl = contentEl.createEl("input", {
       type: "text",
-      placeholder: "Enter synonym..."
+      placeholder: this.tr.addSynonymPlaceholder
     });
     inputEl.style.width = "100%";
     inputEl.style.marginBottom = "10px";
@@ -761,10 +851,10 @@ var AddSynonymModal = class extends import_obsidian4.Modal {
     buttonContainer.style.display = "flex";
     buttonContainer.style.justifyContent = "flex-end";
     buttonContainer.style.gap = "10px";
-    const cancelBtn = buttonContainer.createEl("button", { text: "Cancel" });
+    const cancelBtn = buttonContainer.createEl("button", { text: this.tr.cancel });
     cancelBtn.onclick = () => this.close();
     const submitBtn = buttonContainer.createEl("button", {
-      text: "Add",
+      text: this.tr.add,
       cls: "mod-cta"
     });
     submitBtn.onclick = () => {
@@ -799,7 +889,8 @@ var SynonymerPlugin = class extends import_obsidian4.Plugin {
     const assetLoader = new AssetDictionaryLoader(this.app, this.manifest.dir);
     const assetDict = await assetLoader.loadDictionary(this.settings.selectedLanguage);
     this.synonymService = new SynonymService(this.settings, assetDict, this.customManager);
-    this.addRibbonIcon("clipboard-list", "Synonym", (evt) => {
+    this.addRibbonIcon("clipboard-list", t(this.settings.uiLanguage).ribbonTooltip, (evt) => {
+      const tr = t(this.settings.uiLanguage);
       const view = this.app.workspace.getActiveViewOfType(import_obsidian4.MarkdownView);
       if (view) {
         const editor = view.editor;
@@ -807,41 +898,43 @@ var SynonymerPlugin = class extends import_obsidian4.Plugin {
         if (selection) {
           this.showSynonyms(selection, editor);
         } else {
-          new import_obsidian4.Notice("Select a word to find synonyms");
+          new import_obsidian4.Notice(tr.selectWordNotice);
         }
       } else {
-        new import_obsidian4.Notice("This feature only works in Markdown view");
+        new import_obsidian4.Notice(tr.markdownOnlyNotice);
       }
     });
     this.addCommand({
       id: "show-synonyms",
-      name: "Show synonyms for selected word",
+      name: t(this.settings.uiLanguage).commandShowSynonyms,
       editorCallback: (editor, ctx) => {
+        const tr = t(this.settings.uiLanguage);
         if (ctx instanceof import_obsidian4.MarkdownView) {
           const selection = editor.getSelection();
           if (selection) {
             this.showSynonyms(selection, editor);
           } else {
-            new import_obsidian4.Notice("Select a word to find synonyms");
+            new import_obsidian4.Notice(tr.selectWordNotice);
           }
         } else {
-          new import_obsidian4.Notice("This feature only works in Markdown view");
+          new import_obsidian4.Notice(tr.markdownOnlyNotice);
         }
       }
     });
     this.registerEvent(this.app.workspace.on("editor-menu", (menu, editor) => {
+      const tr = t(this.settings.uiLanguage);
       let selection = editor.getSelection();
       if (!selection || selection.trim() === "") {
         selection = this.getWordAtCursor(editor);
       }
       if (selection && selection.trim() !== "") {
         menu.addItem((item) => {
-          item.setTitle("L\xE4gg till synonym").setIcon("pencil").onClick(() => {
+          item.setTitle(tr.contextAddSynonym).setIcon("pencil").onClick(() => {
             this.promptAddSynonym(selection);
           });
         });
         menu.addItem((item) => {
-          item.setTitle("Hitta synonymer").setIcon("search").onClick(() => {
+          item.setTitle(tr.contextFindSynonyms).setIcon("search").onClick(() => {
             this.showSynonyms(selection, editor);
           });
         });
@@ -864,16 +957,17 @@ var SynonymerPlugin = class extends import_obsidian4.Plugin {
     return line.slice(start, end);
   }
   async promptAddSynonym(word) {
-    new AddSynonymModal(this.app, word, async (synonym) => {
+    const tr = t(this.settings.uiLanguage);
+    new AddSynonymModal(this.app, word, tr, async (synonym) => {
       try {
         await this.customManager.addSynonym(word, synonym);
         const assetLoader = new AssetDictionaryLoader(this.app, this.manifest.dir);
         const assetDict = await assetLoader.loadDictionary(this.settings.selectedLanguage);
         this.synonymService = new SynonymService(this.settings, assetDict, this.customManager);
-        new import_obsidian4.Notice(`Added "${synonym}" as a synonym for "${word}"`);
+        new import_obsidian4.Notice(tr.synonymAddedNotice(synonym, word));
       } catch (error) {
         console.error("Error adding synonym:", error);
-        new import_obsidian4.Notice("Could not add synonym: " + (error instanceof Error ? error.message : "Unknown error"));
+        new import_obsidian4.Notice(tr.couldNotAddSynonym + (error instanceof Error ? error.message : tr.unknownError));
       }
     }).open();
   }
@@ -913,11 +1007,12 @@ var SynonymerPlugin = class extends import_obsidian4.Plugin {
     document.head.appendChild(styleEl);
   }
   async showSynonyms(word, editor) {
+    const tr = t(this.settings.uiLanguage);
     try {
-      new import_obsidian4.Notice(`Searching for synonyms for "${word}"...`, 2e3);
+      new import_obsidian4.Notice(tr.searchingNotice(word), 2e3);
       const synonyms = await this.synonymService.getSynonyms(word);
       if (synonyms.length === 0) {
-        new import_obsidian4.Notice(`No synonyms found for "${word}"`, 3e3);
+        new import_obsidian4.Notice(tr.noSynonymsNotice(word), 3e3);
         return;
       }
       const menu = this.createSynonymMenu(synonyms, (synonym) => {
@@ -947,20 +1042,21 @@ var SynonymerPlugin = class extends import_obsidian4.Plugin {
       let errorMessage;
       if (error instanceof Error) {
         if (error.message.includes("ERR_NAME_NOT_RESOLVED") || error.message.includes("ERR_CONNECTION_REFUSED") || error.message.includes("NetworkError")) {
-          errorMessage = "Could not connect to the synonym service. Check your internet connection.";
+          errorMessage = tr.connectionError;
         } else {
           errorMessage = error.message;
         }
       } else {
-        errorMessage = "Unknown error";
+        errorMessage = tr.unknownError;
       }
-      new import_obsidian4.Notice(`Could not fetch synonyms: ${errorMessage}`, 4e3);
+      new import_obsidian4.Notice(`${tr.couldNotFetchSynonyms}${errorMessage}`, 4e3);
     }
   }
   createSynonymMenu(synonyms, onSelect) {
     const menu = new import_obsidian4.Menu();
+    const tr = t(this.settings.uiLanguage);
     menu.addItem((item) => {
-      item.setTitle(`Found ${synonyms.length} synonyms:`).setDisabled(true);
+      item.setTitle(tr.foundSynonymsHeader(synonyms.length)).setDisabled(true);
     });
     menu.addSeparator();
     if (synonyms.length > 10) {
@@ -1009,12 +1105,19 @@ var SynonymerSettingTab = class extends import_obsidian4.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "Synonym Settings" });
-    new import_obsidian4.Setting(containerEl).setName("Dictionary language").setDesc("Select the language for the local synonym dictionary").addDropdown(async (dropdown) => {
+    const tr = t(this.plugin.settings.uiLanguage);
+    containerEl.createEl("h2", { text: tr.settingsHeading });
+    new import_obsidian4.Setting(containerEl).setName(tr.uiLanguageName).setDesc(tr.uiLanguageDesc).addDropdown((dropdown) => dropdown.addOption("en", tr.uiLanguageEnglish).addOption("sv", tr.uiLanguageSwedish).setValue(this.plugin.settings.uiLanguage).onChange(async (value) => {
+      this.plugin.settings.uiLanguage = value;
+      this.plugin.settings.apiSource = value === "sv" ? "svenska_se" : "thesaurus_com";
+      await this.plugin.saveSettings();
+      this.display();
+    }));
+    new import_obsidian4.Setting(containerEl).setName(tr.dictLanguageName).setDesc(tr.dictLanguageDesc).addDropdown(async (dropdown) => {
       const loader = new AssetDictionaryLoader(this.app, this.plugin.manifest.dir);
       const languages = await loader.getAvailableLanguages();
       if (languages.length === 0) {
-        dropdown.addOption("", "No dictionaries found");
+        dropdown.addOption("", tr.noDictionariesFound);
       } else {
         languages.forEach((lang) => {
           dropdown.addOption(lang, lang);
@@ -1023,22 +1126,22 @@ var SynonymerSettingTab = class extends import_obsidian4.PluginSettingTab {
       dropdown.setValue(this.plugin.settings.selectedLanguage).onChange(async (value) => {
         this.plugin.settings.selectedLanguage = value;
         await this.plugin.saveSettings();
-        new import_obsidian4.Notice("Reload the plugin to use the new language");
+        new import_obsidian4.Notice(tr.reloadPluginNotice);
       });
     });
-    new import_obsidian4.Setting(containerEl).setName("Enable online lookup").setDesc("Search for additional synonyms from online sources to complement local dictionary").addToggle((toggle) => toggle.setValue(this.plugin.settings.enableOnlineLookup).onChange(async (value) => {
+    new import_obsidian4.Setting(containerEl).setName(tr.enableOnlineName).setDesc(tr.enableOnlineDesc).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableOnlineLookup).onChange(async (value) => {
       this.plugin.settings.enableOnlineLookup = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian4.Setting(containerEl).setName("Online source").setDesc("Select which online service to use for additional synonyms").addDropdown((dropdown) => dropdown.addOption("thesaurus_com", "Thesaurus.com (English)").addOption("svenska_se", "Synonymer (Swedish)").setValue(this.plugin.settings.apiSource).onChange(async (value) => {
+    new import_obsidian4.Setting(containerEl).setName(tr.onlineSourceName).setDesc(tr.onlineSourceDesc).addDropdown((dropdown) => dropdown.addOption("thesaurus_com", tr.onlineSourceThesaurus).addOption("svenska_se", tr.onlineSourceSwedish).setValue(this.plugin.settings.apiSource).onChange(async (value) => {
       this.plugin.settings.apiSource = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian4.Setting(containerEl).setName("API key").setDesc("API key for online service (if required by the selected source)").addText((text) => text.setPlaceholder("Enter API key").setValue(this.plugin.settings.apiKey).onChange(async (value) => {
+    new import_obsidian4.Setting(containerEl).setName(tr.apiKeyName).setDesc(tr.apiKeyDesc).addText((text) => text.setPlaceholder(tr.apiKeyPlaceholder).setValue(this.plugin.settings.apiKey).onChange(async (value) => {
       this.plugin.settings.apiKey = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian4.Setting(containerEl).setName("Maximum synonyms").setDesc("Maximum number of synonyms to display").addSlider((slider) => slider.setLimits(3, 25, 1).setValue(this.plugin.settings.maxSynonyms).setDynamicTooltip().onChange(async (value) => {
+    new import_obsidian4.Setting(containerEl).setName(tr.maxSynonymsName).setDesc(tr.maxSynonymsDesc).addSlider((slider) => slider.setLimits(3, 25, 1).setValue(this.plugin.settings.maxSynonyms).setDynamicTooltip().onChange(async (value) => {
       this.plugin.settings.maxSynonyms = value;
       await this.plugin.saveSettings();
     }));

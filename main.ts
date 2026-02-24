@@ -4,26 +4,29 @@ import { SynonymService } from './synonymService';
 // Import without .js extension for TypeScript compatibility
 import { AssetDictionaryLoader } from './assetDictionaryLoader';
 import { CustomDictionaryManager } from './customDictionaryManager';
+import { t, Translations } from './i18n';
 
 // Add a new modal class for adding synonyms
 class AddSynonymModal extends Modal {
 	word: string;
 	onSubmit: (synonym: string) => void;
+	tr: Translations;
 
-	constructor(app: App, word: string, onSubmit: (synonym: string) => void) {
+	constructor(app: App, word: string, tr: Translations, onSubmit: (synonym: string) => void) {
 		super(app);
 		this.word = word;
+		this.tr = tr;
 		this.onSubmit = onSubmit;
 	}
 
 	onOpen() {
 		const { contentEl } = this;
 		
-		contentEl.createEl('h2', { text: `Add synonym for "${this.word}"` });
+		contentEl.createEl('h2', { text: this.tr.addSynonymTitle(this.word) });
 
 		const inputEl = contentEl.createEl('input', {
 			type: 'text',
-			placeholder: 'Enter synonym...'
+			placeholder: this.tr.addSynonymPlaceholder
 		});
 		inputEl.style.width = '100%';
 		inputEl.style.marginBottom = '10px';
@@ -33,11 +36,11 @@ class AddSynonymModal extends Modal {
 		buttonContainer.style.justifyContent = 'flex-end';
 		buttonContainer.style.gap = '10px';
 
-		const cancelBtn = buttonContainer.createEl('button', { text: 'Cancel' });
+		const cancelBtn = buttonContainer.createEl('button', { text: this.tr.cancel });
 		cancelBtn.onclick = () => this.close();
 
 		const submitBtn = buttonContainer.createEl('button', { 
-			text: 'Add',
+			text: this.tr.add,
 			cls: 'mod-cta'
 		});
 		submitBtn.onclick = () => {
@@ -87,7 +90,8 @@ export default class SynonymerPlugin extends Plugin {
 		this.synonymService = new SynonymService(this.settings, assetDict, this.customManager);
 
 		// Add ribbon icon to the left sidebar - using Obsidian's built-in ClipboardType icon
-		this.addRibbonIcon('clipboard-list', 'Synonym', (evt: MouseEvent) => {
+		this.addRibbonIcon('clipboard-list', t(this.settings.uiLanguage).ribbonTooltip, (evt: MouseEvent) => {
+			const tr = t(this.settings.uiLanguage);
 			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 			if (view) {
 				const editor = view.editor;
@@ -95,27 +99,28 @@ export default class SynonymerPlugin extends Plugin {
 				if (selection) {
 					this.showSynonyms(selection, editor);
 				} else {
-					new Notice('Select a word to find synonyms');
+					new Notice(tr.selectWordNotice);
 				}
 			} else {
-				new Notice('This feature only works in Markdown view');
+				new Notice(tr.markdownOnlyNotice);
 			}
 		});
 
 		// Add a command to show synonyms for the selected word
 		this.addCommand({
 			id: 'show-synonyms',
-			name: 'Show synonyms for selected word',
+			name: t(this.settings.uiLanguage).commandShowSynonyms,
 			editorCallback: (editor: Editor, ctx: MarkdownView | MarkdownFileInfo) => {
+				const tr = t(this.settings.uiLanguage);
 				if (ctx instanceof MarkdownView) {
 					const selection = editor.getSelection();
 					if (selection) {
 						this.showSynonyms(selection, editor);
 					} else {
-						new Notice('Select a word to find synonyms');
+						new Notice(tr.selectWordNotice);
 					}
 				} else {
-					new Notice('This feature only works in Markdown view');
+					new Notice(tr.markdownOnlyNotice);
 				}
 			}
 		});
@@ -123,6 +128,7 @@ export default class SynonymerPlugin extends Plugin {
 		// Add editor context menu item (right-click menu)
 		this.registerEvent(
 			this.app.workspace.on('editor-menu', (menu: Menu, editor: Editor) => {
+				const tr = t(this.settings.uiLanguage);
 				let selection = editor.getSelection();
 
 				// If no selection, try to get word under cursor
@@ -133,15 +139,15 @@ export default class SynonymerPlugin extends Plugin {
 				if (selection && selection.trim() !== '') {
 					// Add option to add custom synonym
 					menu.addItem((item) => {
-						item.setTitle('Lägg till synonym')
-							.setIcon('pencil') // Changed icon to verify visibility
+						item.setTitle(tr.contextAddSynonym)
+							.setIcon('pencil')
 							.onClick(() => {
 								this.promptAddSynonym(selection);
 							});
 					});
 
 					menu.addItem((item) => {
-						item.setTitle('Hitta synonymer')
+						item.setTitle(tr.contextFindSynonyms)
 							.setIcon('search')
 							.onClick(() => {
 								this.showSynonyms(selection, editor);
@@ -179,7 +185,8 @@ export default class SynonymerPlugin extends Plugin {
 	}
 
 	async promptAddSynonym(word: string) {
-		new AddSynonymModal(this.app, word, async (synonym) => {
+		const tr = t(this.settings.uiLanguage);
+		new AddSynonymModal(this.app, word, tr, async (synonym) => {
 			try {
 				await this.customManager.addSynonym(word, synonym);
 				
@@ -188,10 +195,10 @@ export default class SynonymerPlugin extends Plugin {
 				const assetDict = await assetLoader.loadDictionary(this.settings.selectedLanguage);
 				this.synonymService = new SynonymService(this.settings, assetDict, this.customManager);
 				
-				new Notice(`Added "${synonym}" as a synonym for "${word}"`);
+				new Notice(tr.synonymAddedNotice(synonym, word));
 			} catch (error) {
 				console.error('Error adding synonym:', error);
-				new Notice('Could not add synonym: ' + (error instanceof Error ? error.message : 'Unknown error'));
+				new Notice(tr.couldNotAddSynonym + (error instanceof Error ? error.message : tr.unknownError));
 			}
 		}).open();
 	}
@@ -235,13 +242,14 @@ export default class SynonymerPlugin extends Plugin {
 	}
 
 	async showSynonyms(word: string, editor: Editor) {
+		const tr = t(this.settings.uiLanguage);
 		try {
-			new Notice(`Searching for synonyms for "${word}"...`, 2000);
+			new Notice(tr.searchingNotice(word), 2000);
 			
 			const synonyms = await this.synonymService.getSynonyms(word);
 			
 			if (synonyms.length === 0) {
-				new Notice(`No synonyms found for "${word}"`, 3000);
+				new Notice(tr.noSynonymsNotice(word), 3000);
 				return;
 			}
 
@@ -284,24 +292,25 @@ export default class SynonymerPlugin extends Plugin {
 				if (error.message.includes('ERR_NAME_NOT_RESOLVED') || 
 					error.message.includes('ERR_CONNECTION_REFUSED') ||
 					error.message.includes('NetworkError')) {
-					errorMessage = 'Could not connect to the synonym service. Check your internet connection.';
+					errorMessage = tr.connectionError;
 				} else {
 					errorMessage = error.message;
 				}
 			} else {
-				errorMessage = 'Unknown error';
+				errorMessage = tr.unknownError;
 			}
 			
-			new Notice(`Could not fetch synonyms: ${errorMessage}`, 4000);
+			new Notice(`${tr.couldNotFetchSynonyms}${errorMessage}`, 4000);
 		}
 	}
 
 	createSynonymMenu(synonyms: string[], onSelect: (synonym: string) => void) {
 		const menu = new Menu();
 		
+		const tr = t(this.settings.uiLanguage);
 		// Show a header with count
 		menu.addItem((item) => {
-			item.setTitle(`Found ${synonyms.length} synonyms:`)
+			item.setTitle(tr.foundSynonymsHeader(synonyms.length))
 				.setDisabled(true);
 		});
 		
@@ -372,19 +381,38 @@ class SynonymerSettingTab extends PluginSettingTab {
 		const {containerEl} = this;
 		containerEl.empty();
 
-		containerEl.createEl('h2', {text: 'Synonym Settings'});
+		const tr = t(this.plugin.settings.uiLanguage);
 
-		// Language selection
+		containerEl.createEl('h2', {text: tr.settingsHeading});
+
+		// UI Language selection
 		new Setting(containerEl)
-			.setName('Dictionary language')
-			.setDesc('Select the language for the local synonym dictionary')
+			.setName(tr.uiLanguageName)
+			.setDesc(tr.uiLanguageDesc)
+			.addDropdown(dropdown => dropdown
+				.addOption('en', tr.uiLanguageEnglish)
+				.addOption('sv', tr.uiLanguageSwedish)
+				.setValue(this.plugin.settings.uiLanguage)
+				.onChange(async (value: string) => {
+					this.plugin.settings.uiLanguage = value as 'en' | 'sv';
+					// Also switch online source to match UI language
+					this.plugin.settings.apiSource = value === 'sv' ? 'svenska_se' : 'thesaurus_com';
+					await this.plugin.saveSettings();
+					// Re-render settings tab with new language
+					this.display();
+				}));
+
+		// Dictionary language selection
+		new Setting(containerEl)
+			.setName(tr.dictLanguageName)
+			.setDesc(tr.dictLanguageDesc)
 			.addDropdown(async (dropdown) => {
 				const loader = new AssetDictionaryLoader(this.app, this.plugin.manifest.dir!);
 				const languages = await loader.getAvailableLanguages();
 				
 				// Add language options with better display names
 				if (languages.length === 0) {
-					dropdown.addOption('', 'No dictionaries found');
+					dropdown.addOption('', tr.noDictionariesFound);
 				} else {
 					languages.forEach(lang => {
 						// Display language code as-is (e.g., sv_SE, en_US)
@@ -396,15 +424,13 @@ class SynonymerSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.selectedLanguage = value;
 						await this.plugin.saveSettings();
-						new Notice('Reload the plugin to use the new language');
+						new Notice(tr.reloadPluginNotice);
 					});
 			});
 
-		// Removed vulgar language filter
-
 		new Setting(containerEl)
-			.setName('Enable online lookup')
-			.setDesc('Search for additional synonyms from online sources to complement local dictionary')
+			.setName(tr.enableOnlineName)
+			.setDesc(tr.enableOnlineDesc)
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enableOnlineLookup)
 				.onChange(async (value) => {
@@ -413,11 +439,11 @@ class SynonymerSettingTab extends PluginSettingTab {
 				}));
 			
 		new Setting(containerEl)
-			.setName('Online source')
-			.setDesc('Select which online service to use for additional synonyms')
+			.setName(tr.onlineSourceName)
+			.setDesc(tr.onlineSourceDesc)
 			.addDropdown(dropdown => dropdown
-				.addOption('thesaurus_com', 'Thesaurus.com (English)')
-				.addOption('svenska_se', 'Synonymer (Swedish)')
+				.addOption('thesaurus_com', tr.onlineSourceThesaurus)
+				.addOption('svenska_se', tr.onlineSourceSwedish)
 				.setValue(this.plugin.settings.apiSource)
 				.onChange(async (value) => {
 					this.plugin.settings.apiSource = value;
@@ -425,21 +451,19 @@ class SynonymerSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('API key')
-			.setDesc('API key for online service (if required by the selected source)')
+			.setName(tr.apiKeyName)
+			.setDesc(tr.apiKeyDesc)
 			.addText(text => text
-				.setPlaceholder('Enter API key')
+				.setPlaceholder(tr.apiKeyPlaceholder)
 				.setValue(this.plugin.settings.apiKey)
 				.onChange(async (value) => {
 					this.plugin.settings.apiKey = value;
 					await this.plugin.saveSettings();
 				}));
 
-		// Removed 'Use local dictionary as fallback' - local dictionary is always the primary source
-		
 		new Setting(containerEl)
-			.setName('Maximum synonyms')
-			.setDesc('Maximum number of synonyms to display')
+			.setName(tr.maxSynonymsName)
+			.setDesc(tr.maxSynonymsDesc)
 			.addSlider(slider => slider
 				.setLimits(3, 25, 1)
 				.setValue(this.plugin.settings.maxSynonyms)
