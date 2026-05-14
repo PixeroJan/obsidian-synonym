@@ -1,17 +1,15 @@
-import { normalizePath, TFile, Vault, App } from 'obsidian';
+import { normalizePath, App } from 'obsidian';
 
 export interface AssetDictionary {
     [word: string]: string[];
 }
 
 export class AssetDictionaryLoader {
-    private vault: Vault;
     private app: App;
     private basePath: string;
 
     constructor(app: App, pluginDir: string) {
         this.app = app;
-        this.vault = app.vault;
         // The pluginDir already contains the full path from vault root
         this.basePath = normalizePath(`${pluginDir}/assets`);
     }
@@ -23,7 +21,7 @@ export class AssetDictionaryLoader {
             try {
                 const fileContent = await this.app.vault.adapter.read(xmlPath);
                 return this.parseSynlexXml(fileContent);
-            } catch (error) {
+            } catch {
                 // Synlex.xml not found, fall back to .dat file
             }
         }
@@ -49,8 +47,7 @@ export class AssetDictionaryLoader {
         // Use global flag without 's' flag for compatibility
         const synPattern = /<syn level="([\d.]+)">\s*<w1>(.*?)<\/w1>\s*<w2>(.*?)<\/w2>\s*<\/syn>/g;
         let match;
-        let pairCount = 0;
-        
+
         while ((match = synPattern.exec(content)) !== null) {
             const level = parseFloat(match[1]);
             const word1 = match[2].trim().toLowerCase();
@@ -73,8 +70,6 @@ export class AssetDictionaryLoader {
                 if (!dictionary[word2].includes(word1)) {
                     dictionary[word2].push(word1);
                 }
-                
-                pairCount++;
             }
         }
         

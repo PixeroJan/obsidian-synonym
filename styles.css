@@ -54,3 +54,15 @@
 .side-dock-ribbon-action[aria-label="Synonymer"] svg {
   color: var(--icon-color) !important;
 }
+
+/* Add Synonym modal */
+.synonymer-add-input {
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.synonymer-modal-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}

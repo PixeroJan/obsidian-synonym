@@ -1,4 +1,4 @@
-import { Editor, MarkdownFileInfo, MarkdownView, Notice, Plugin, PluginSettingTab, Setting, Menu, Modal, App } from 'obsidian';
+import { Editor, MarkdownView, Notice, Plugin, PluginSettingTab, Setting, Menu, Modal, App } from 'obsidian';
 import { SynonymerSettings, DEFAULT_SETTINGS } from './settings';
 import { SynonymService } from './synonymService';
 // Import without .js extension for TypeScript compatibility
@@ -21,20 +21,16 @@ class AddSynonymModal extends Modal {
 
 	onOpen() {
 		const { contentEl } = this;
-		
-		contentEl.createEl('h2', { text: this.tr.addSynonymTitle(this.word) });
+
+		new Setting(contentEl).setName(this.tr.addSynonymTitle(this.word)).setHeading();
 
 		const inputEl = contentEl.createEl('input', {
 			type: 'text',
-			placeholder: this.tr.addSynonymPlaceholder
+			placeholder: this.tr.addSynonymPlaceholder,
+			cls: 'synonymer-add-input'
 		});
-		inputEl.style.width = '100%';
-		inputEl.style.marginBottom = '10px';
 
-		const buttonContainer = contentEl.createDiv();
-		buttonContainer.style.display = 'flex';
-		buttonContainer.style.justifyContent = 'flex-end';
-		buttonContainer.style.gap = '10px';
+		const buttonContainer = contentEl.createDiv({ cls: 'synonymer-modal-buttons' });
 
 		const cancelBtn = buttonContainer.createEl('button', { text: this.tr.cancel });
 		cancelBtn.onclick = () => this.close();
@@ -76,11 +72,10 @@ export default class SynonymerPlugin extends Plugin {
 	customManager!: CustomDictionaryManager;
 
 	async onload() {
-		this.addStyles();
 		await this.loadSettings();
 		
 		// Initialize custom dictionary manager - pass app instead of vault
-		this.customManager = new CustomDictionaryManager(this.app, this.manifest.dir!);
+		this.customManager = new CustomDictionaryManager(this.app, this.manifest.dir!, this.settings.selectedLanguage);
 		await this.customManager.load();
 		
 		// Load assets dictionary - pass app instead of vault
@@ -97,7 +92,7 @@ export default class SynonymerPlugin extends Plugin {
 				const editor = view.editor;
 				const selection = editor.getSelection();
 				if (selection) {
-					this.showSynonyms(selection, editor);
+					void this.showSynonyms(selection, editor);
 				} else {
 					new Notice(tr.selectWordNotice);
 				}
@@ -110,12 +105,12 @@ export default class SynonymerPlugin extends Plugin {
 		this.addCommand({
 			id: 'show-synonyms',
 			name: t(this.settings.uiLanguage).commandShowSynonyms,
-			editorCallback: (editor: Editor, ctx: MarkdownView | MarkdownFileInfo) => {
+			editorCallback: (editor: Editor, ctx) => {
 				const tr = t(this.settings.uiLanguage);
 				if (ctx instanceof MarkdownView) {
 					const selection = editor.getSelection();
 					if (selection) {
-						this.showSynonyms(selection, editor);
+						void this.showSynonyms(selection, editor);
 					} else {
 						new Notice(tr.selectWordNotice);
 					}
@@ -142,7 +137,7 @@ export default class SynonymerPlugin extends Plugin {
 						item.setTitle(tr.contextAddSynonym)
 							.setIcon('pencil')
 							.onClick(() => {
-								this.promptAddSynonym(selection);
+								void this.promptAddSynonym(selection);
 							});
 					});
 
@@ -150,7 +145,7 @@ export default class SynonymerPlugin extends Plugin {
 						item.setTitle(tr.contextFindSynonyms)
 							.setIcon('search')
 							.onClick(() => {
-								this.showSynonyms(selection, editor);
+								void this.showSynonyms(selection, editor);
 							});
 					});
 				}
@@ -169,7 +164,7 @@ export default class SynonymerPlugin extends Plugin {
 		let end = cursor.ch;
 		
 		// Word characters including Swedish/European characters and hyphens
-		const wordChar = /[\w\u00C0-\u00ff\-]/; 
+		const wordChar = /[\w\u00C0-\u00ff-]/;
 
 		// Walk backwards
 		while (start > 0 && wordChar.test(line.charAt(start - 1))) {
@@ -184,62 +179,27 @@ export default class SynonymerPlugin extends Plugin {
 		return line.slice(start, end);
 	}
 
-	async promptAddSynonym(word: string) {
+	promptAddSynonym(word: string) {
 		const tr = t(this.settings.uiLanguage);
-		new AddSynonymModal(this.app, word, tr, async (synonym) => {
-			try {
-				await this.customManager.addSynonym(word, synonym);
-				
-				// Reload the synonym service to include the new custom synonym
-				const assetLoader = new AssetDictionaryLoader(this.app, this.manifest.dir!);
-				const assetDict = await assetLoader.loadDictionary(this.settings.selectedLanguage);
-				this.synonymService = new SynonymService(this.settings, assetDict, this.customManager);
-				
-				new Notice(tr.synonymAddedNotice(synonym, word));
-			} catch (error) {
-				console.error('Error adding synonym:', error);
-				new Notice(tr.couldNotAddSynonym + (error instanceof Error ? error.message : tr.unknownError));
-			}
+		new AddSynonymModal(this.app, word, tr, (synonym) => {
+			void (async () => {
+				try {
+					await this.customManager.addSynonym(word, synonym);
+
+					// Reload the synonym service to include the new custom synonym
+					const assetLoader = new AssetDictionaryLoader(this.app, this.manifest.dir!);
+					const assetDict = await assetLoader.loadDictionary(this.settings.selectedLanguage);
+					this.synonymService = new SynonymService(this.settings, assetDict, this.customManager);
+
+					new Notice(tr.synonymAddedNotice(synonym, word));
+				} catch (error) {
+					console.error('Error adding synonym:', error);
+					new Notice(tr.couldNotAddSynonym + (error instanceof Error ? error.message : tr.unknownError));
+				}
+			})();
 		}).open();
 	}
 
-	// Replace loadStyles with addStyles that adds CSS directly
-	addStyles() {
-		// Add styles directly to document
-		const styleEl = document.createElement('style');
-		styleEl.id = 'synonym-plugin-styles';
-		styleEl.textContent = `
-			/* Synonym Plugin Custom Styles */
-			.synonymer-menu-item {
-			  padding: 8px 12px;
-			  cursor: pointer;
-			  display: flex;
-			  align-items: center;
-			  font-size: 14px;
-			  width: 100%;
-			  text-align: left;
-			}
-			
-			.synonymer-menu-item:hover {
-			  background-color: var(--background-modifier-hover);
-			  color: var(--text-accent);
-			}
-			
-			.synonymer-notice {
-			  font-size: 14px;
-			  padding: 8px;
-			  background-color: var(--background-primary);
-			  border-left: 4px solid var(--text-accent);
-			  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-			}
-			
-			/* Make the toolbar icon black and white */
-			.side-dock-ribbon-action[aria-label="Synonym"] svg {
-			  color: var(--icon-color) !important;
-			}
-		`;
-		document.head.appendChild(styleEl);
-	}
 
 	async showSynonyms(word: string, editor: Editor) {
 		const tr = t(this.settings.uiLanguage);
@@ -259,10 +219,10 @@ export default class SynonymerPlugin extends Plugin {
 
 			// Fix for iOS: Use safer selection coordinate detection
 			let rect: { left: number; bottom: number; };
-			
+
 			try {
-				const selection = window.getSelection();
-				
+				const selection = activeWindow.getSelection();
+
 				if (selection && selection.rangeCount > 0) {
 					const range = selection.getRangeAt(0);
 					const domRect = range.getBoundingClientRect();
@@ -270,7 +230,7 @@ export default class SynonymerPlugin extends Plugin {
 				} else {
 					throw new Error("No selection ranges available");
 				}
-			} catch (e) {
+			} catch {
 				// Safe fallback without using getScrollerElement
 				const pos = editor.getCursor();
 				const lineHeight = 20;
@@ -354,12 +314,6 @@ export default class SynonymerPlugin extends Plugin {
 		return menu;
 	}
 
-	onunload() {
-		// Clean up styles when plugin is disabled
-		const styleEl = document.getElementById('synonym-plugin-styles');
-		if (styleEl) styleEl.remove();
-	}
-
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
@@ -372,7 +326,7 @@ export default class SynonymerPlugin extends Plugin {
 class SynonymerSettingTab extends PluginSettingTab {
 	plugin: SynonymerPlugin;
 
-	constructor(app: any, plugin: SynonymerPlugin) {
+	constructor(app: App, plugin: SynonymerPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
@@ -383,7 +337,7 @@ class SynonymerSettingTab extends PluginSettingTab {
 
 		const tr = t(this.plugin.settings.uiLanguage);
 
-		containerEl.createEl('h2', {text: tr.settingsHeading});
+		new Setting(containerEl).setName(tr.settingsHeading).setHeading();
 
 		// UI Language selection
 		new Setting(containerEl)

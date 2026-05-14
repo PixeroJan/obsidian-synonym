@@ -1,22 +1,17 @@
-import { normalizePath, TFile, Vault, App } from 'obsidian';
+import { normalizePath, TFile, App } from 'obsidian';
 
 export interface CustomDictionary {
     [word: string]: string[];
 }
 
 export class CustomDictionaryManager {
-    private vault: Vault;
     private app: App;
     private filePath: string;
     private dictionary: CustomDictionary = {};
 
-    constructor(app: App, pluginDir: string) {
-    this.app = app;
-    this.vault = app.vault;
-    // Use selectedLanguage from settings if available, fallback to 'en'
-    const settings = (this.app as any).plugins?.plugins?.synonym?.settings;
-    const lang = settings?.selectedLanguage || 'en';
-    this.filePath = normalizePath(`${pluginDir}/assets/custom-synonyms-${lang}.json`);
+    constructor(app: App, pluginDir: string, language = 'en') {
+        this.app = app;
+        this.filePath = normalizePath(`${pluginDir}/assets/custom-synonyms-${language}.json`);
     }
 
     async load(): Promise<CustomDictionary> {
@@ -26,7 +21,7 @@ export class CustomDictionaryManager {
                 const content = await this.app.vault.adapter.read(this.filePath);
                 this.dictionary = JSON.parse(content);
                 return this.dictionary;
-            } catch (readError) {
+            } catch {
                 // Custom synonyms file does not exist, will create on first save
                 this.dictionary = {};
                 return {};
@@ -109,7 +104,7 @@ export class CustomDictionaryManager {
                 // Trigger vault to notice the file
                 await this.app.vault.adapter.stat(this.filePath);
                 // Give vault time to index
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await new Promise(resolve => window.setTimeout(resolve, 500));
                 file = this.app.vault.getAbstractFileByPath(this.filePath);
             }
             
