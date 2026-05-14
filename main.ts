@@ -103,7 +103,7 @@ export default class SynonymerPlugin extends Plugin {
 
 		// Add a command to show synonyms for the selected word
 		this.addCommand({
-			id: 'show-synonyms',
+			id: 'show',
 			name: t(this.settings.uiLanguage).commandShowSynonyms,
 			editorCallback: (editor: Editor, ctx) => {
 				const tr = t(this.settings.uiLanguage);

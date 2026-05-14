@@ -1,9 +1,9 @@
 {
   "id": "synonym",
   "name": "Synonym",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "minAppVersion": "0.12.0",
-  "description": "Synonyms for Swedish and English words.",
+  "description": "Find synonyms for Swedish and English words from local and online sources.",
   "author": "Jan Sandstrom",
   "authorUrl": "https://github.com/PixeroJan",
   "isDesktopOnly": false

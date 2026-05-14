@@ -897,7 +897,7 @@ var SynonymerPlugin = class extends import_obsidian4.Plugin {
       }
     });
     this.addCommand({
-      id: "show-synonyms",
+      id: "show",
       name: t(this.settings.uiLanguage).commandShowSynonyms,
       editorCallback: (editor, ctx) => {
         const tr = t(this.settings.uiLanguage);

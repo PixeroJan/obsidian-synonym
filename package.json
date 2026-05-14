@@ -1,6 +1,6 @@
 {
   "name": "obsidian-synonym",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Find synonyms for multiple languages in Obsidian using local and online sources.",
   "main": "main.js",
   "scripts": {

@@ -50,9 +50,10 @@
 
 /* Synonym Plugin Custom Styles */
 
-/* Make the toolbar icon black and white */
-.side-dock-ribbon-action[aria-label="Synonymer"] svg {
-  color: var(--icon-color) !important;
+/* Make the toolbar icon black and white (high specificity instead of !important) */
+.workspace .side-dock-ribbon-action[aria-label="Synonymer"] svg,
+.workspace .side-dock-ribbon-action[aria-label="Synonymer"] svg path {
+  color: var(--icon-color);
 }
 
 /* Add Synonym modal */

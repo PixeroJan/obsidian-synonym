@@ -19,7 +19,7 @@ export class CustomDictionaryManager {
             // Try to read the file directly using the adapter
             try {
                 const content = await this.app.vault.adapter.read(this.filePath);
-                this.dictionary = JSON.parse(content);
+                this.dictionary = JSON.parse(content) as CustomDictionary;
                 return this.dictionary;
             } catch {
                 // Custom synonyms file does not exist, will create on first save
