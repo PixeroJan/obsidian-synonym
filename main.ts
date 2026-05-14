@@ -73,13 +73,14 @@ export default class SynonymerPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
-		
+		const pluginDir = this.manifest.dir ?? '';
+
 		// Initialize custom dictionary manager - pass app instead of vault
-		this.customManager = new CustomDictionaryManager(this.app, this.manifest.dir!, this.settings.selectedLanguage);
+		this.customManager = new CustomDictionaryManager(this.app, pluginDir, this.settings.selectedLanguage);
 		await this.customManager.load();
 		
 		// Load assets dictionary - pass app instead of vault
-		const assetLoader = new AssetDictionaryLoader(this.app, this.manifest.dir!);
+		const assetLoader = new AssetDictionaryLoader(this.app, pluginDir);
 		const assetDict = await assetLoader.loadDictionary(this.settings.selectedLanguage);
 		
 		this.synonymService = new SynonymService(this.settings, assetDict, this.customManager);
@@ -187,7 +188,7 @@ export default class SynonymerPlugin extends Plugin {
 					await this.customManager.addSynonym(word, synonym);
 
 					// Reload the synonym service to include the new custom synonym
-					const assetLoader = new AssetDictionaryLoader(this.app, this.manifest.dir!);
+					const assetLoader = new AssetDictionaryLoader(this.app, this.manifest.dir ?? '');
 					const assetDict = await assetLoader.loadDictionary(this.settings.selectedLanguage);
 					this.synonymService = new SynonymService(this.settings, assetDict, this.customManager);
 
@@ -361,7 +362,7 @@ class SynonymerSettingTab extends PluginSettingTab {
 			.setName(tr.dictLanguageName)
 			.setDesc(tr.dictLanguageDesc)
 			.addDropdown(async (dropdown) => {
-				const loader = new AssetDictionaryLoader(this.app, this.plugin.manifest.dir!);
+				const loader = new AssetDictionaryLoader(this.app, this.plugin.manifest.dir ?? '');
 				const languages = await loader.getAvailableLanguages();
 				
 				// Add language options with better display names
