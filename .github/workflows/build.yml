@@ -77,7 +77,7 @@ jobs:
           PLUGIN_VERSION: ${{ inputs.version }}
           TARGET_SHA: ${{ github.sha }}
         run: |
-          RELEASE_TAG="v$PLUGIN_VERSION"
+          RELEASE_TAG="$PLUGIN_VERSION"
 
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             echo "Replacing existing release $RELEASE_TAG"
@@ -90,7 +90,7 @@ jobs:
             gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$RELEASE_TAG"
           fi
 
-          gh release create "v$PLUGIN_VERSION" \
+          gh release create "$PLUGIN_VERSION" \
             "release/main.js" \
             "release/manifest.json" \
             "release/styles.css" \
