@@ -45,17 +45,6 @@ jobs:
       - name: Build plugin
         run: npm run build
 
-      - name: Package plugin
-        env:
-          PLUGIN_VERSION: ${{ inputs.version }}
-        run: |
-          if [ -n "$PLUGIN_VERSION" ]; then
-            PACKAGE_NAME="synonym-$PLUGIN_VERSION.zip"
-          else
-            PACKAGE_NAME="synonym-build.zip"
-          fi
-          zip -r "$PACKAGE_NAME" main.js manifest.json styles.css assets
-
       - name: Upload plugin artifact
         uses: actions/upload-artifact@v4
         with:
@@ -66,7 +55,6 @@ jobs:
             manifest.json
             styles.css
             assets/
-            *.zip
 
   release:
     name: Create GitHub release
@@ -89,11 +77,12 @@ jobs:
           PLUGIN_VERSION: ${{ inputs.version }}
           TARGET_SHA: ${{ github.sha }}
         run: |
+          ASSET_FILES=(release/assets/*)
           gh release create "v$PLUGIN_VERSION" \
             "release/main.js" \
             "release/manifest.json" \
             "release/styles.css" \
-            "release/synonym-$PLUGIN_VERSION.zip" \
+            "${ASSET_FILES[@]}" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$TARGET_SHA" \
             --title "Synonym v$PLUGIN_VERSION" \
