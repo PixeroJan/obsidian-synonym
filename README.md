@@ -158,28 +158,6 @@ To add support for additional languages, download thesaurus files from the Libre
 
 MIT
 
-## Version History
+## Changelog
 
-### 1.0.6
-
-- Fixed disabled online lookup falling through to an online source when the selected local dictionary had no match
-
-### 1.0.2
-
-- Added bilingual UI (English/Swedish) with language switcher in settings
-- Interface language now automatically sets the default online source
-- Default UI language changed to English
-
-### 1.0.1
-
-- Added support for local dictionary files (th_sv_SE_v2.dat)
-- Added custom synonyms feature
-- Added multi-language support
-- Increased max synonyms to 25
-- Improved online lookup reliability
-- Fixed iOS compatibility issues
-
-### 1.0.0
-
-- Initial release
-- Basic synonym lookup
+See [CHANGELOG.md](CHANGELOG.md) for the release history.

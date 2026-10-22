@@ -3,6 +3,12 @@
 All notable changes to the Synonym plugin are documented here.
 
 
+## [1.0.7]
+
+### Fixed
+
+- Fixed release metadata version alignment and settings compatibility warnings.
+
 ## [1.0.6]
 
 ### Fixed

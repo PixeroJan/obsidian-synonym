@@ -62,8 +62,6 @@ export class SynonymService {
             
             return filteredLocal.slice(0, this.settings.maxSynonyms);
         } catch (error) {
-            console.error("Error fetching online synonyms:", error);
-            
             // Always use local synonyms as fallback if available
             if (filteredLocal.length > 0) {
                 return filteredLocal.slice(0, this.settings.maxSynonyms);
@@ -162,11 +160,10 @@ export class SynonymService {
                     return [...new Set(synonyms)];
                 }
             }
-        } catch (error) {
-            console.error("Error with synonymlexikon.se:", error);
+        } catch {
+            return [];
         }
-        
-        console.log("Synonymlexikon attempts completed");
+
         return [];
     }
 
@@ -243,9 +240,8 @@ export class SynonymService {
                 }
             }
             
-            console.log(`Failed with status: ${response.status}`);
-        } catch (error) {
-            console.error("Error with synonymer.se:", error);
+        } catch {
+            return [];
         }
         
         return [];
@@ -309,17 +305,16 @@ export class SynonymService {
                     return [...new Set(synonyms)].slice(0, 20);
                 }
             }
-        } catch (error) {
-            console.error("Error with Thesaurus.com:", error);
+        } catch {
+            return [];
         }
+
         return [];
     }
 
     private async getSynonymsFromSynonymsNet(word: string): Promise<string[]> {
         try {
             const url = `https://www.synonyms.net/synonym/${encodeURIComponent(word.toLowerCase())}`;
-            console.log(`Trying Synonyms.net: ${url}`);
-            
             const response = await requestUrl({
                 url: url,
                 method: 'GET',
@@ -358,21 +353,19 @@ export class SynonymService {
                 }
                 
                 if (synonyms.length > 0) {
-                    console.log(`Found ${synonyms.length} synonyms from Synonyms.net`);
                     return [...new Set(synonyms)].slice(0, 20);
                 }
             }
-        } catch (error) {
-            console.error("Error with Synonyms.net:", error);
+        } catch {
+            return [];
         }
+
         return [];
     }
 
     private async getSynonymsFromSynonymeDe(word: string): Promise<string[]> {
         try {
             const url = `https://www.synonyme.de/${encodeURIComponent(word.toLowerCase())}/`;
-            console.log(`Trying Synonyme.de: ${url}`);
-            
             const response = await requestUrl({
                 url: url,
                 method: 'GET',
@@ -411,21 +404,19 @@ export class SynonymService {
                 }
                 
                 if (synonyms.length > 0) {
-                    console.log(`Found ${synonyms.length} synonyms from Synonyme.de`);
                     return [...new Set(synonyms)].slice(0, 20);
                 }
             }
-        } catch (error) {
-            console.error("Error with Synonyme.de:", error);
+        } catch {
+            return [];
         }
+
         return [];
     }
 
     private async getSynonymsFromSynonymesFr(word: string): Promise<string[]> {
         try {
             const url = `https://www.synonymes.com/synonyme.php?mot=${encodeURIComponent(word.toLowerCase())}`;
-            console.log(`Trying Synonymes.com: ${url}`);
-            
             const response = await requestUrl({
                 url: url,
                 method: 'GET',
@@ -463,21 +454,19 @@ export class SynonymService {
                 }
                 
                 if (synonyms.length > 0) {
-                    console.log(`Found ${synonyms.length} synonyms from Synonymes.com`);
                     return [...new Set(synonyms)].slice(0, 20);
                 }
             }
-        } catch (error) {
-            console.error("Error with Synonymes.com:", error);
+        } catch {
+            return [];
         }
+
         return [];
     }
 
     private async getSynonymsFromSinonimosEs(word: string): Promise<string[]> {
         try {
             const url = `https://www.sinonimos.com/${encodeURIComponent(word.toLowerCase())}/`;
-            console.log(`Trying Sinonimos.com: ${url}`);
-            
             const response = await requestUrl({
                 url: url,
                 method: 'GET',
@@ -516,21 +505,19 @@ export class SynonymService {
                 }
                 
                 if (synonyms.length > 0) {
-                    console.log(`Found ${synonyms.length} synonyms from Sinonimos.com`);
                     return [...new Set(synonyms)].slice(0, 20);
                 }
             }
-        } catch (error) {
-            console.error("Error with Sinonimos.com:", error);
+        } catch {
+            return [];
         }
+
         return [];
     }
 
     private async getSynonymsFromSinonimosPt(word: string): Promise<string[]> {
         try {
             const url = `https://www.sinonimos.com.br/${encodeURIComponent(word.toLowerCase())}/`;
-            console.log(`Trying Sinonimos.com.br: ${url}`);
-            
             const response = await requestUrl({
                 url: url,
                 method: 'GET',
@@ -569,21 +556,19 @@ export class SynonymService {
                 }
                 
                 if (synonyms.length > 0) {
-                    console.log(`Found ${synonyms.length} synonyms from Sinonimos.com.br`);
                     return [...new Set(synonyms)].slice(0, 20);
                 }
             }
-        } catch (error) {
-            console.error("Error with Sinonimos.com.br:", error);
+        } catch {
+            return [];
         }
+
         return [];
     }
 
     private async getSynonymsFromSinonimiIt(word: string): Promise<string[]> {
         try {
             const url = `https://www.sinonimi.org/sinonimi/${encodeURIComponent(word.toLowerCase())}.html`;
-            console.log(`Trying Sinonimi.org: ${url}`);
-            
             const response = await requestUrl({
                 url: url,
                 method: 'GET',
@@ -622,13 +607,13 @@ export class SynonymService {
                 }
                 
                 if (synonyms.length > 0) {
-                    console.log(`Found ${synonyms.length} synonyms from Sinonimi.org`);
                     return [...new Set(synonyms)].slice(0, 20);
                 }
             }
-        } catch (error) {
-            console.error("Error with Sinonimi.org:", error);
+        } catch {
+            return [];
         }
+
         return [];
     }
 }

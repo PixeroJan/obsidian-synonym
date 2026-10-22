@@ -6,6 +6,48 @@ import { AssetDictionaryLoader } from './assetDictionaryLoader';
 import { CustomDictionaryManager } from './customDictionaryManager';
 import { t, Translations } from './i18n';
 
+type SynonymerSettingDefinition = {
+	name: string;
+	desc?: string;
+	control:
+		| { type: 'toggle'; key: 'enableOnlineLookup' }
+		| { type: 'dropdown'; key: 'uiLanguage' | 'selectedLanguage' | 'apiSource'; options: Record<string, string> }
+		| { type: 'text'; key: 'apiKey' }
+		| { type: 'slider'; key: 'maxSynonyms'; min: number; max: number; step: number };
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function getPersistedSettings(value: unknown): Partial<SynonymerSettings> {
+	if (!isRecord(value)) {
+		return {};
+	}
+
+	const settings: Partial<SynonymerSettings> = {};
+	if (typeof value.enableOnlineLookup === 'boolean') {
+		settings.enableOnlineLookup = value.enableOnlineLookup;
+	}
+	if (typeof value.apiSource === 'string') {
+		settings.apiSource = value.apiSource;
+	}
+	if (typeof value.apiKey === 'string') {
+		settings.apiKey = value.apiKey;
+	}
+	if (typeof value.maxSynonyms === 'number' && Number.isFinite(value.maxSynonyms)) {
+		settings.maxSynonyms = value.maxSynonyms;
+	}
+	if (typeof value.selectedLanguage === 'string') {
+		settings.selectedLanguage = value.selectedLanguage;
+	}
+	if (value.uiLanguage === 'en' || value.uiLanguage === 'sv') {
+		settings.uiLanguage = value.uiLanguage;
+	}
+
+	return settings;
+}
+
 // Add a new modal class for adding synonyms
 class AddSynonymModal extends Modal {
 	word: string;
@@ -316,7 +358,8 @@ export default class SynonymerPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const savedSettings = (await this.loadData()) as unknown;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, getPersistedSettings(savedSettings));
 	}
 
 	async saveSettings() {
@@ -330,6 +373,122 @@ class SynonymerSettingTab extends PluginSettingTab {
 	constructor(app: App, plugin: SynonymerPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
+	}
+
+	getSettingDefinitions(): SynonymerSettingDefinition[] {
+		const tr = t(this.plugin.settings.uiLanguage);
+
+		return [
+			{
+				name: tr.uiLanguageName,
+				desc: tr.uiLanguageDesc,
+				control: {
+					type: 'dropdown',
+					key: 'uiLanguage',
+					options: {
+						en: tr.uiLanguageEnglish,
+						sv: tr.uiLanguageSwedish
+					}
+				}
+			},
+			{
+				name: tr.dictLanguageName,
+				desc: tr.dictLanguageDesc,
+				control: {
+					type: 'dropdown',
+					key: 'selectedLanguage',
+					options: {
+						en_US: 'en_US',
+						sv_SE: 'sv_SE'
+					}
+				}
+			},
+			{
+				name: tr.enableOnlineName,
+				desc: tr.enableOnlineDesc,
+				control: {
+					type: 'toggle',
+					key: 'enableOnlineLookup'
+				}
+			},
+			{
+				name: tr.onlineSourceName,
+				desc: tr.onlineSourceDesc,
+				control: {
+					type: 'dropdown',
+					key: 'apiSource',
+					options: {
+						thesaurus_com: tr.onlineSourceThesaurus,
+						svenska_se: tr.onlineSourceSwedish
+					}
+				}
+			},
+			{
+				name: tr.apiKeyName,
+				desc: tr.apiKeyDesc,
+				control: {
+					type: 'text',
+					key: 'apiKey'
+				}
+			},
+			{
+				name: tr.maxSynonymsName,
+				desc: tr.maxSynonymsDesc,
+				control: {
+					type: 'slider',
+					key: 'maxSynonyms',
+					min: 3,
+					max: 25,
+					step: 1
+				}
+			}
+		];
+	}
+
+	async setControlValue(key: string, value: unknown): Promise<void> {
+		switch (key) {
+			case 'uiLanguage':
+				if (value !== 'en' && value !== 'sv') {
+					throw new Error(`Invalid UI language: ${String(value)}`);
+				}
+				this.plugin.settings.uiLanguage = value;
+				this.plugin.settings.apiSource = value === 'sv' ? 'svenska_se' : 'thesaurus_com';
+				break;
+			case 'selectedLanguage':
+				if (value !== 'en_US' && value !== 'sv_SE') {
+					throw new Error(`Invalid dictionary language: ${String(value)}`);
+				}
+				this.plugin.settings.selectedLanguage = value;
+				break;
+			case 'enableOnlineLookup':
+				if (typeof value !== 'boolean') {
+					throw new Error(`Invalid online lookup setting: ${String(value)}`);
+				}
+				this.plugin.settings.enableOnlineLookup = value;
+				break;
+			case 'apiSource':
+				if (value !== 'thesaurus_com' && value !== 'svenska_se') {
+					throw new Error(`Invalid online source: ${String(value)}`);
+				}
+				this.plugin.settings.apiSource = value;
+				break;
+			case 'apiKey':
+				if (typeof value !== 'string') {
+					throw new Error(`Invalid API key: ${String(value)}`);
+				}
+				this.plugin.settings.apiKey = value;
+				break;
+			case 'maxSynonyms':
+				if (typeof value !== 'number' || !Number.isFinite(value) || value < 3 || value > 25) {
+					throw new Error(`Invalid maximum synonym count: ${String(value)}`);
+				}
+				this.plugin.settings.maxSynonyms = value;
+				break;
+			default:
+				throw new Error(`Unsupported setting: ${key}`);
+		}
+
+		await this.plugin.saveSettings();
 	}
 
 	display(): void {

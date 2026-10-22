@@ -81,7 +81,6 @@ var SynonymService = class {
       }
       return filteredLocal.slice(0, this.settings.maxSynonyms);
     } catch (error) {
-      console.error("Error fetching online synonyms:", error);
       if (filteredLocal.length > 0) {
         return filteredLocal.slice(0, this.settings.maxSynonyms);
       }
@@ -155,10 +154,9 @@ var SynonymService = class {
           return [...new Set(synonyms)];
         }
       }
-    } catch (error) {
-      console.error("Error with synonymlexikon.se:", error);
+    } catch (e) {
+      return [];
     }
-    console.log("Synonymlexikon attempts completed");
     return [];
   }
   async getSynonymsFromSynonymerSe(word) {
@@ -214,9 +212,8 @@ var SynonymService = class {
           return [...new Set(synonyms)];
         }
       }
-      console.log(`Failed with status: ${response.status}`);
-    } catch (error) {
-      console.error("Error with synonymer.se:", error);
+    } catch (e) {
+      return [];
     }
     return [];
   }
@@ -261,15 +258,14 @@ var SynonymService = class {
           return [...new Set(synonyms)].slice(0, 20);
         }
       }
-    } catch (error) {
-      console.error("Error with Thesaurus.com:", error);
+    } catch (e) {
+      return [];
     }
     return [];
   }
   async getSynonymsFromSynonymsNet(word) {
     try {
       const url = `https://www.synonyms.net/synonym/${encodeURIComponent(word.toLowerCase())}`;
-      console.log(`Trying Synonyms.net: ${url}`);
       const response = await (0, import_obsidian.requestUrl)({
         url,
         method: "GET",
@@ -301,19 +297,17 @@ var SynonymService = class {
             break;
         }
         if (synonyms.length > 0) {
-          console.log(`Found ${synonyms.length} synonyms from Synonyms.net`);
           return [...new Set(synonyms)].slice(0, 20);
         }
       }
-    } catch (error) {
-      console.error("Error with Synonyms.net:", error);
+    } catch (e) {
+      return [];
     }
     return [];
   }
   async getSynonymsFromSynonymeDe(word) {
     try {
       const url = `https://www.synonyme.de/${encodeURIComponent(word.toLowerCase())}/`;
-      console.log(`Trying Synonyme.de: ${url}`);
       const response = await (0, import_obsidian.requestUrl)({
         url,
         method: "GET",
@@ -345,19 +339,17 @@ var SynonymService = class {
             break;
         }
         if (synonyms.length > 0) {
-          console.log(`Found ${synonyms.length} synonyms from Synonyme.de`);
           return [...new Set(synonyms)].slice(0, 20);
         }
       }
-    } catch (error) {
-      console.error("Error with Synonyme.de:", error);
+    } catch (e) {
+      return [];
     }
     return [];
   }
   async getSynonymsFromSynonymesFr(word) {
     try {
       const url = `https://www.synonymes.com/synonyme.php?mot=${encodeURIComponent(word.toLowerCase())}`;
-      console.log(`Trying Synonymes.com: ${url}`);
       const response = await (0, import_obsidian.requestUrl)({
         url,
         method: "GET",
@@ -389,19 +381,17 @@ var SynonymService = class {
             break;
         }
         if (synonyms.length > 0) {
-          console.log(`Found ${synonyms.length} synonyms from Synonymes.com`);
           return [...new Set(synonyms)].slice(0, 20);
         }
       }
-    } catch (error) {
-      console.error("Error with Synonymes.com:", error);
+    } catch (e) {
+      return [];
     }
     return [];
   }
   async getSynonymsFromSinonimosEs(word) {
     try {
       const url = `https://www.sinonimos.com/${encodeURIComponent(word.toLowerCase())}/`;
-      console.log(`Trying Sinonimos.com: ${url}`);
       const response = await (0, import_obsidian.requestUrl)({
         url,
         method: "GET",
@@ -433,19 +423,17 @@ var SynonymService = class {
             break;
         }
         if (synonyms.length > 0) {
-          console.log(`Found ${synonyms.length} synonyms from Sinonimos.com`);
           return [...new Set(synonyms)].slice(0, 20);
         }
       }
-    } catch (error) {
-      console.error("Error with Sinonimos.com:", error);
+    } catch (e) {
+      return [];
     }
     return [];
   }
   async getSynonymsFromSinonimosPt(word) {
     try {
       const url = `https://www.sinonimos.com.br/${encodeURIComponent(word.toLowerCase())}/`;
-      console.log(`Trying Sinonimos.com.br: ${url}`);
       const response = await (0, import_obsidian.requestUrl)({
         url,
         method: "GET",
@@ -477,19 +465,17 @@ var SynonymService = class {
             break;
         }
         if (synonyms.length > 0) {
-          console.log(`Found ${synonyms.length} synonyms from Sinonimos.com.br`);
           return [...new Set(synonyms)].slice(0, 20);
         }
       }
-    } catch (error) {
-      console.error("Error with Sinonimos.com.br:", error);
+    } catch (e) {
+      return [];
     }
     return [];
   }
   async getSynonymsFromSinonimiIt(word) {
     try {
       const url = `https://www.sinonimi.org/sinonimi/${encodeURIComponent(word.toLowerCase())}.html`;
-      console.log(`Trying Sinonimi.org: ${url}`);
       const response = await (0, import_obsidian.requestUrl)({
         url,
         method: "GET",
@@ -521,12 +507,11 @@ var SynonymService = class {
             break;
         }
         if (synonyms.length > 0) {
-          console.log(`Found ${synonyms.length} synonyms from Sinonimi.org`);
           return [...new Set(synonyms)].slice(0, 20);
         }
       }
-    } catch (error) {
-      console.error("Error with Sinonimi.org:", error);
+    } catch (e) {
+      return [];
     }
     return [];
   }
@@ -828,6 +813,34 @@ function t(lang) {
 }
 
 // main.ts
+function isRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+function getPersistedSettings(value) {
+  if (!isRecord(value)) {
+    return {};
+  }
+  const settings = {};
+  if (typeof value.enableOnlineLookup === "boolean") {
+    settings.enableOnlineLookup = value.enableOnlineLookup;
+  }
+  if (typeof value.apiSource === "string") {
+    settings.apiSource = value.apiSource;
+  }
+  if (typeof value.apiKey === "string") {
+    settings.apiKey = value.apiKey;
+  }
+  if (typeof value.maxSynonyms === "number" && Number.isFinite(value.maxSynonyms)) {
+    settings.maxSynonyms = value.maxSynonyms;
+  }
+  if (typeof value.selectedLanguage === "string") {
+    settings.selectedLanguage = value.selectedLanguage;
+  }
+  if (value.uiLanguage === "en" || value.uiLanguage === "sv") {
+    settings.uiLanguage = value.uiLanguage;
+  }
+  return settings;
+}
 var AddSynonymModal = class extends import_obsidian4.Modal {
   constructor(app, word, tr, onSubmit) {
     super(app);
@@ -1048,7 +1061,8 @@ var SynonymerPlugin = class extends import_obsidian4.Plugin {
     return menu;
   }
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const savedSettings = await this.loadData();
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, getPersistedSettings(savedSettings));
   }
   async saveSettings() {
     await this.saveData(this.settings);
@@ -1058,6 +1072,118 @@ var SynonymerSettingTab = class extends import_obsidian4.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
+  }
+  getSettingDefinitions() {
+    const tr = t(this.plugin.settings.uiLanguage);
+    return [
+      {
+        name: tr.uiLanguageName,
+        desc: tr.uiLanguageDesc,
+        control: {
+          type: "dropdown",
+          key: "uiLanguage",
+          options: {
+            en: tr.uiLanguageEnglish,
+            sv: tr.uiLanguageSwedish
+          }
+        }
+      },
+      {
+        name: tr.dictLanguageName,
+        desc: tr.dictLanguageDesc,
+        control: {
+          type: "dropdown",
+          key: "selectedLanguage",
+          options: {
+            en_US: "en_US",
+            sv_SE: "sv_SE"
+          }
+        }
+      },
+      {
+        name: tr.enableOnlineName,
+        desc: tr.enableOnlineDesc,
+        control: {
+          type: "toggle",
+          key: "enableOnlineLookup"
+        }
+      },
+      {
+        name: tr.onlineSourceName,
+        desc: tr.onlineSourceDesc,
+        control: {
+          type: "dropdown",
+          key: "apiSource",
+          options: {
+            thesaurus_com: tr.onlineSourceThesaurus,
+            svenska_se: tr.onlineSourceSwedish
+          }
+        }
+      },
+      {
+        name: tr.apiKeyName,
+        desc: tr.apiKeyDesc,
+        control: {
+          type: "text",
+          key: "apiKey"
+        }
+      },
+      {
+        name: tr.maxSynonymsName,
+        desc: tr.maxSynonymsDesc,
+        control: {
+          type: "slider",
+          key: "maxSynonyms",
+          min: 3,
+          max: 25,
+          step: 1
+        }
+      }
+    ];
+  }
+  async setControlValue(key, value) {
+    switch (key) {
+      case "uiLanguage":
+        if (value !== "en" && value !== "sv") {
+          throw new Error(`Invalid UI language: ${String(value)}`);
+        }
+        this.plugin.settings.uiLanguage = value;
+        this.plugin.settings.apiSource = value === "sv" ? "svenska_se" : "thesaurus_com";
+        break;
+      case "selectedLanguage":
+        if (value !== "en_US" && value !== "sv_SE") {
+          throw new Error(`Invalid dictionary language: ${String(value)}`);
+        }
+        this.plugin.settings.selectedLanguage = value;
+        break;
+      case "enableOnlineLookup":
+        if (typeof value !== "boolean") {
+          throw new Error(`Invalid online lookup setting: ${String(value)}`);
+        }
+        this.plugin.settings.enableOnlineLookup = value;
+        break;
+      case "apiSource":
+        if (value !== "thesaurus_com" && value !== "svenska_se") {
+          throw new Error(`Invalid online source: ${String(value)}`);
+        }
+        this.plugin.settings.apiSource = value;
+        break;
+      case "apiKey":
+        if (typeof value !== "string") {
+          throw new Error(`Invalid API key: ${String(value)}`);
+        }
+        this.plugin.settings.apiKey = value;
+        break;
+      case "maxSynonyms":
+        if (typeof value !== "number" || !Number.isFinite(value) || value < 3 || value > 25) {
+          throw new Error(`Invalid maximum synonym count: ${String(value)}`);
+        }
+        this.plugin.settings.maxSynonyms = value;
+        break;
+      default:
+        throw new Error(`Unsupported setting: ${key}`);
+    }
+    await this.plugin.saveSettings();
   }
   display() {
     const { containerEl } = this;
