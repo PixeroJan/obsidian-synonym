@@ -78,6 +78,19 @@ jobs:
           TARGET_SHA: ${{ github.sha }}
         run: |
           ASSET_FILES=(release/assets/*)
+          RELEASE_TAG="v$PLUGIN_VERSION"
+
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Replacing existing release $RELEASE_TAG"
+            gh release delete "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --yes \
+              --cleanup-tag
+          elif gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" > /dev/null 2>&1; then
+            echo "Replacing existing tag $RELEASE_TAG"
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$RELEASE_TAG"
+          fi
+
           gh release create "v$PLUGIN_VERSION" \
             "release/main.js" \
             "release/manifest.json" \
