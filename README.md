@@ -160,6 +160,10 @@ MIT
 
 ## Version History
 
+### 1.0.6
+
+- Fixed disabled online lookup falling through to an online source when the selected local dictionary had no match
+
 ### 1.0.2
 
 - Added bilingual UI (English/Swedish) with language switcher in settings

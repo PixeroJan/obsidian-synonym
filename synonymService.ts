@@ -41,7 +41,7 @@ export class SynonymService {
         const filteredLocal = allLocalSynonyms;
         
         // If we have local synonyms and online lookup is disabled, return local results
-        if (filteredLocal.length > 0 && !this.settings.enableOnlineLookup) {
+        if (!this.settings.enableOnlineLookup) {
             return filteredLocal.slice(0, this.settings.maxSynonyms);
         }
         

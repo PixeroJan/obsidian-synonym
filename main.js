@@ -66,7 +66,7 @@ var SynonymService = class {
       ...localSynonyms.filter((s) => !assetSynonyms.includes(s))
     ];
     const filteredLocal = allLocalSynonyms;
-    if (filteredLocal.length > 0 && !this.settings.enableOnlineLookup) {
+    if (!this.settings.enableOnlineLookup) {
       return filteredLocal.slice(0, this.settings.maxSynonyms);
     }
     try {

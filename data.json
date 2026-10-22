@@ -4,6 +4,7 @@
   "apiKey": "",
   "maxSynonyms": 25,
   "selectedLanguage": "sv_SE",
+  "uiLanguage": "sv",
   "alwaysTryOnline": true,
   "fallbackToLocalDictionary": true,
   "filterVulgar": false
