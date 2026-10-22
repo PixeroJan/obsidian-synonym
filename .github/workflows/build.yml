@@ -96,5 +96,5 @@ jobs:
             "release/styles.css" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$TARGET_SHA" \
-            --title "Synonym v$PLUGIN_VERSION" \
+            --title "Synonym $PLUGIN_VERSION" \
             --generate-notes
