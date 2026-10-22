@@ -29,6 +29,9 @@ Synonyms for Swedish and English words with Multi-language Support. Add your own
 
 2. Enable the plugin in Obsidian's Community Plugins settings
 
+For a release that includes the bundled dictionaries, download `obsidian-synonym.zip` from the
+release page and extract all of its contents into `.obsidian/plugins/synonym/`.
+
 ## Usage
 
 ### Finding Synonyms

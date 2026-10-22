@@ -1,4 +1,4 @@
-import { Editor, MarkdownView, Notice, Plugin, PluginSettingTab, Setting, Menu, Modal, App } from 'obsidian';
+import { Editor, MarkdownView, Notice, Plugin, PluginSettingTab, Setting, Menu, Modal, App, normalizePath } from 'obsidian';
 import { SynonymerSettings, DEFAULT_SETTINGS } from './settings';
 import { SynonymService } from './synonymService';
 // Import without .js extension for TypeScript compatibility
@@ -115,14 +115,20 @@ export default class SynonymerPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
-		const pluginDir = this.manifest.dir ?? '';
+		const pluginDir = this.getPluginDir();
+
+		const assetLoader = new AssetDictionaryLoader(this.app, pluginDir);
+		const availableLanguages = await assetLoader.getAvailableLanguages();
+		if (availableLanguages.length > 0 && !availableLanguages.includes(this.settings.selectedLanguage)) {
+			this.settings.selectedLanguage = availableLanguages[0];
+			await this.saveSettings();
+		}
 
 		// Initialize custom dictionary manager - pass app instead of vault
 		this.customManager = new CustomDictionaryManager(this.app, pluginDir, this.settings.selectedLanguage);
 		await this.customManager.load();
 		
 		// Load assets dictionary - pass app instead of vault
-		const assetLoader = new AssetDictionaryLoader(this.app, pluginDir);
 		const assetDict = await assetLoader.loadDictionary(this.settings.selectedLanguage);
 		
 		this.synonymService = new SynonymService(this.settings, assetDict, this.customManager);
@@ -199,6 +205,10 @@ export default class SynonymerPlugin extends Plugin {
 		this.addSettingTab(new SynonymerSettingTab(this.app, this));
 	}
 
+	getPluginDir(): string {
+		return this.manifest.dir || normalizePath(`${this.app.vault.configDir}/plugins/${this.manifest.id}`);
+	}
+
 	getWordAtCursor(editor: Editor): string {
 		const cursor = editor.getCursor();
 		const line = editor.getLine(cursor.line);
@@ -230,7 +240,7 @@ export default class SynonymerPlugin extends Plugin {
 					await this.customManager.addSynonym(word, synonym);
 
 					// Reload the synonym service to include the new custom synonym
-					const assetLoader = new AssetDictionaryLoader(this.app, this.manifest.dir ?? '');
+					const assetLoader = new AssetDictionaryLoader(this.app, this.getPluginDir());
 					const assetDict = await assetLoader.loadDictionary(this.settings.selectedLanguage);
 					this.synonymService = new SynonymService(this.settings, assetDict, this.customManager);
 
@@ -455,7 +465,7 @@ class SynonymerSettingTab extends PluginSettingTab {
 				this.plugin.settings.apiSource = value === 'sv' ? 'svenska_se' : 'thesaurus_com';
 				break;
 			case 'selectedLanguage':
-				if (value !== 'en_US' && value !== 'sv_SE') {
+				if (typeof value !== 'string' || value.trim() === '') {
 					throw new Error(`Invalid dictionary language: ${String(value)}`);
 				}
 				this.plugin.settings.selectedLanguage = value;
@@ -521,7 +531,7 @@ class SynonymerSettingTab extends PluginSettingTab {
 			.setName(tr.dictLanguageName)
 			.setDesc(tr.dictLanguageDesc)
 			.addDropdown(async (dropdown) => {
-				const loader = new AssetDictionaryLoader(this.app, this.plugin.manifest.dir ?? '');
+				const loader = new AssetDictionaryLoader(this.app, this.plugin.getPluginDir());
 				const languages = await loader.getAvailableLanguages();
 				
 				// Add language options with better display names

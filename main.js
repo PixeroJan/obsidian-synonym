@@ -888,12 +888,16 @@ var AddSynonymModal = class extends import_obsidian4.Modal {
 };
 var SynonymerPlugin = class extends import_obsidian4.Plugin {
   async onload() {
-    var _a;
     await this.loadSettings();
-    const pluginDir = (_a = this.manifest.dir) != null ? _a : "";
+    const pluginDir = this.getPluginDir();
+    const assetLoader = new AssetDictionaryLoader(this.app, pluginDir);
+    const availableLanguages = await assetLoader.getAvailableLanguages();
+    if (availableLanguages.length > 0 && !availableLanguages.includes(this.settings.selectedLanguage)) {
+      this.settings.selectedLanguage = availableLanguages[0];
+      await this.saveSettings();
+    }
     this.customManager = new CustomDictionaryManager(this.app, pluginDir, this.settings.selectedLanguage);
     await this.customManager.load();
-    const assetLoader = new AssetDictionaryLoader(this.app, pluginDir);
     const assetDict = await assetLoader.loadDictionary(this.settings.selectedLanguage);
     this.synonymService = new SynonymService(this.settings, assetDict, this.customManager);
     this.addRibbonIcon("clipboard-list", t(this.settings.uiLanguage).ribbonTooltip, (evt) => {
@@ -949,6 +953,9 @@ var SynonymerPlugin = class extends import_obsidian4.Plugin {
     }));
     this.addSettingTab(new SynonymerSettingTab(this.app, this));
   }
+  getPluginDir() {
+    return this.manifest.dir || (0, import_obsidian4.normalizePath)(`${this.app.vault.configDir}/plugins/${this.manifest.id}`);
+  }
   getWordAtCursor(editor) {
     const cursor = editor.getCursor();
     const line = editor.getLine(cursor.line);
@@ -967,10 +974,9 @@ var SynonymerPlugin = class extends import_obsidian4.Plugin {
     const tr = t(this.settings.uiLanguage);
     new AddSynonymModal(this.app, word, tr, (synonym) => {
       void (async () => {
-        var _a;
         try {
           await this.customManager.addSynonym(word, synonym);
-          const assetLoader = new AssetDictionaryLoader(this.app, (_a = this.manifest.dir) != null ? _a : "");
+          const assetLoader = new AssetDictionaryLoader(this.app, this.getPluginDir());
           const assetDict = await assetLoader.loadDictionary(this.settings.selectedLanguage);
           this.synonymService = new SynonymService(this.settings, assetDict, this.customManager);
           new import_obsidian4.Notice(tr.synonymAddedNotice(synonym, word));
@@ -1151,7 +1157,7 @@ var SynonymerSettingTab = class extends import_obsidian4.PluginSettingTab {
         this.plugin.settings.apiSource = value === "sv" ? "svenska_se" : "thesaurus_com";
         break;
       case "selectedLanguage":
-        if (value !== "en_US" && value !== "sv_SE") {
+        if (typeof value !== "string" || value.trim() === "") {
           throw new Error(`Invalid dictionary language: ${String(value)}`);
         }
         this.plugin.settings.selectedLanguage = value;
@@ -1197,8 +1203,7 @@ var SynonymerSettingTab = class extends import_obsidian4.PluginSettingTab {
       this.display();
     }));
     new import_obsidian4.Setting(containerEl).setName(tr.dictLanguageName).setDesc(tr.dictLanguageDesc).addDropdown(async (dropdown) => {
-      var _a;
-      const loader = new AssetDictionaryLoader(this.app, (_a = this.plugin.manifest.dir) != null ? _a : "");
+      const loader = new AssetDictionaryLoader(this.app, this.plugin.getPluginDir());
       const languages = await loader.getAvailableLanguages();
       if (languages.length === 0) {
         dropdown.addOption("", tr.noDictionariesFound);

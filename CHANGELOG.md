@@ -3,6 +3,13 @@
 All notable changes to the Synonym plugin are documented here.
 
 
+## [1.0.8]
+
+### Fixed
+
+- Fixed local dictionary loading when Obsidian does not provide the plugin directory in its manifest.
+- Added release packaging for bundled dictionary assets.
+
 ## [1.0.7]
 
 ### Fixed

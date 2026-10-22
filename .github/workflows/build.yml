@@ -71,6 +71,11 @@ jobs:
           name: synonym-plugin
           path: release
 
+      - name: Package plugin files
+        run: |
+          cd release
+          zip -r ../obsidian-synonym.zip .
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -94,6 +99,7 @@ jobs:
             "release/main.js" \
             "release/manifest.json" \
             "release/styles.css" \
+            "obsidian-synonym.zip" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$TARGET_SHA" \
             --title "Synonym $PLUGIN_VERSION" \
