@@ -77,7 +77,6 @@ jobs:
           PLUGIN_VERSION: ${{ inputs.version }}
           TARGET_SHA: ${{ github.sha }}
         run: |
-          ASSET_FILES=(release/assets/*)
           RELEASE_TAG="v$PLUGIN_VERSION"
 
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
@@ -95,7 +94,6 @@ jobs:
             "release/main.js" \
             "release/manifest.json" \
             "release/styles.css" \
-            "${ASSET_FILES[@]}" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$TARGET_SHA" \
             --title "Synonym v$PLUGIN_VERSION" \
