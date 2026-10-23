@@ -1202,22 +1202,34 @@ var SynonymerSettingTab = class extends import_obsidian4.PluginSettingTab {
       await this.plugin.saveSettings();
       this.display();
     }));
-    new import_obsidian4.Setting(containerEl).setName(tr.dictLanguageName).setDesc(tr.dictLanguageDesc).addDropdown(async (dropdown) => {
+    let dictionaryDropdown;
+    new import_obsidian4.Setting(containerEl).setName(tr.dictLanguageName).setDesc(tr.dictLanguageDesc).addDropdown((dropdown) => {
+      dictionaryDropdown = dropdown;
+      dropdown.setDisabled(true);
+    });
+    void (async () => {
       const loader = new AssetDictionaryLoader(this.app, this.plugin.getPluginDir());
       const languages = await loader.getAvailableLanguages();
+      const dropdown = dictionaryDropdown;
+      if (!dropdown)
+        return;
       if (languages.length === 0) {
         dropdown.addOption("", tr.noDictionariesFound);
-      } else {
-        languages.forEach((lang) => {
-          dropdown.addOption(lang, lang);
-        });
+        dropdown.setValue("");
+        return;
       }
-      dropdown.setValue(this.plugin.settings.selectedLanguage).onChange(async (value) => {
+      languages.forEach((language) => dropdown.addOption(language, language));
+      const selectedLanguage = languages.includes(this.plugin.settings.selectedLanguage) ? this.plugin.settings.selectedLanguage : languages[0];
+      if (selectedLanguage !== this.plugin.settings.selectedLanguage) {
+        this.plugin.settings.selectedLanguage = selectedLanguage;
+        await this.plugin.saveSettings();
+      }
+      dropdown.setValue(selectedLanguage).setDisabled(false).onChange(async (value) => {
         this.plugin.settings.selectedLanguage = value;
         await this.plugin.saveSettings();
         new import_obsidian4.Notice(tr.reloadPluginNotice);
       });
-    });
+    })();
     new import_obsidian4.Setting(containerEl).setName(tr.enableOnlineName).setDesc(tr.enableOnlineDesc).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableOnlineLookup).onChange(async (value) => {
       this.plugin.settings.enableOnlineLookup = value;
       await this.plugin.saveSettings();

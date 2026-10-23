@@ -76,7 +76,7 @@ jobs:
           cd release
           zip -r ../obsidian-synonym.zip .
 
-      - name: Create GitHub release
+      - name: Publish or update GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           PLUGIN_VERSION: ${{ inputs.version }}
@@ -85,22 +85,26 @@ jobs:
           RELEASE_TAG="$PLUGIN_VERSION"
 
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            echo "Replacing existing release $RELEASE_TAG"
-            gh release delete "$RELEASE_TAG" \
+            echo "Updating existing release $RELEASE_TAG"
+            gh release upload "$RELEASE_TAG" \
+              "release/main.js" \
+              "release/manifest.json" \
+              "release/styles.css" \
+              "obsidian-synonym.zip" \
               --repo "$GITHUB_REPOSITORY" \
-              --yes \
-              --cleanup-tag
-          elif gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" > /dev/null 2>&1; then
-            echo "Replacing existing tag $RELEASE_TAG"
-            gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$RELEASE_TAG"
+              --clobber
+            gh release edit "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Synonym $PLUGIN_VERSION"
+          else
+            echo "Creating release $RELEASE_TAG"
+            gh release create "$PLUGIN_VERSION" \
+              "release/main.js" \
+              "release/manifest.json" \
+              "release/styles.css" \
+              "obsidian-synonym.zip" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$TARGET_SHA" \
+              --title "Synonym $PLUGIN_VERSION" \
+              --generate-notes
           fi
-
-          gh release create "$PLUGIN_VERSION" \
-            "release/main.js" \
-            "release/manifest.json" \
-            "release/styles.css" \
-            "obsidian-synonym.zip" \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$TARGET_SHA" \
-            --title "Synonym $PLUGIN_VERSION" \
-            --generate-notes

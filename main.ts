@@ -1,4 +1,4 @@
-import { Editor, MarkdownView, Notice, Plugin, PluginSettingTab, Setting, Menu, Modal, App, normalizePath } from 'obsidian';
+import { Editor, MarkdownView, Notice, Plugin, PluginSettingTab, Setting, Menu, Modal, App, DropdownComponent, normalizePath } from 'obsidian';
 import { SynonymerSettings, DEFAULT_SETTINGS } from './settings';
 import { SynonymService } from './synonymService';
 // Import without .js extension for TypeScript compatibility
@@ -527,30 +527,46 @@ class SynonymerSettingTab extends PluginSettingTab {
 				}));
 
 		// Dictionary language selection
+		let dictionaryDropdown: DropdownComponent | undefined;
 		new Setting(containerEl)
 			.setName(tr.dictLanguageName)
 			.setDesc(tr.dictLanguageDesc)
-			.addDropdown(async (dropdown) => {
-				const loader = new AssetDictionaryLoader(this.app, this.plugin.getPluginDir());
-				const languages = await loader.getAvailableLanguages();
-				
-				// Add language options with better display names
-				if (languages.length === 0) {
-					dropdown.addOption('', tr.noDictionariesFound);
-				} else {
-					languages.forEach(lang => {
-						// Display language code as-is (e.g., sv_SE, en_US)
-						dropdown.addOption(lang, lang);
-					});
-				}
-				
-				dropdown.setValue(this.plugin.settings.selectedLanguage)
-					.onChange(async (value) => {
-						this.plugin.settings.selectedLanguage = value;
-						await this.plugin.saveSettings();
-						new Notice(tr.reloadPluginNotice);
-					});
+			.addDropdown((dropdown) => {
+				dictionaryDropdown = dropdown;
+				dropdown.setDisabled(true);
 			});
+
+		void (async () => {
+			const loader = new AssetDictionaryLoader(this.app, this.plugin.getPluginDir());
+			const languages = await loader.getAvailableLanguages();
+			const dropdown = dictionaryDropdown;
+			if (!dropdown) return;
+
+			if (languages.length === 0) {
+				dropdown.addOption('', tr.noDictionariesFound);
+				dropdown.setValue('');
+				return;
+			}
+
+			languages.forEach((language) => dropdown.addOption(language, language));
+			const selectedLanguage = languages.includes(this.plugin.settings.selectedLanguage)
+				? this.plugin.settings.selectedLanguage
+				: languages[0];
+
+			if (selectedLanguage !== this.plugin.settings.selectedLanguage) {
+				this.plugin.settings.selectedLanguage = selectedLanguage;
+				await this.plugin.saveSettings();
+			}
+
+			dropdown
+				.setValue(selectedLanguage)
+				.setDisabled(false)
+				.onChange(async (value) => {
+					this.plugin.settings.selectedLanguage = value;
+					await this.plugin.saveSettings();
+					new Notice(tr.reloadPluginNotice);
+				});
+		})();
 
 		new Setting(containerEl)
 			.setName(tr.enableOnlineName)

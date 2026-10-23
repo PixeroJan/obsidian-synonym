@@ -3,6 +3,13 @@
 All notable changes to the Synonym plugin are documented here.
 
 
+## [1.0.9]
+
+### Fixed
+
+- Fixed the dictionary language dropdown so locally discovered dictionaries can be selected in settings.
+- Added a fallback when the previously selected dictionary is no longer available.
+
 ## [1.0.8]
 
 ### Fixed
