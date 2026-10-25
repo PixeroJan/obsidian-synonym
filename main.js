@@ -1124,6 +1124,90 @@ var SynonymerSettingTab = class extends import_obsidian4.PluginSettingTab {
     super(app, plugin);
     this.plugin = plugin;
   }
+  async saveSettingsAndRefresh() {
+    await this.plugin.saveSettings();
+    this.display();
+  }
+  async saveSettingsAndNotify(tr) {
+    await this.plugin.saveSettings();
+    new import_obsidian4.Notice(tr.reloadPluginNotice);
+  }
+  getControlValue(key) {
+    return this.plugin.settings[key];
+  }
+  getSettingDefinitions() {
+    const tr = t(this.plugin.settings.uiLanguage);
+    const languages = [...this.plugin.availableDictionaryLanguages];
+    if (!languages.includes(this.plugin.settings.selectedLanguage) && this.plugin.selectedDictionaryAvailable) {
+      languages.push(this.plugin.settings.selectedLanguage);
+    }
+    return [
+      {
+        name: tr.uiLanguageName,
+        desc: tr.uiLanguageDesc,
+        control: {
+          type: "dropdown",
+          key: "uiLanguage",
+          options: {
+            en: tr.uiLanguageEnglish,
+            sv: tr.uiLanguageSwedish
+          }
+        }
+      },
+      {
+        name: tr.dictLanguageName,
+        desc: tr.dictLanguageDesc,
+        control: {
+          type: "dropdown",
+          key: "selectedLanguage",
+          options: languages.reduce((options, language) => {
+            options[language] = language;
+            return options;
+          }, {})
+        }
+      },
+      {
+        name: tr.enableOnlineName,
+        desc: tr.enableOnlineDesc,
+        control: {
+          type: "toggle",
+          key: "enableOnlineLookup"
+        }
+      },
+      {
+        name: tr.onlineSourceName,
+        desc: tr.onlineSourceDesc,
+        control: {
+          type: "dropdown",
+          key: "apiSource",
+          options: {
+            thesaurus_com: tr.onlineSourceThesaurus,
+            svenska_se: tr.onlineSourceSwedish
+          }
+        }
+      },
+      {
+        name: tr.apiKeyName,
+        desc: tr.apiKeyDesc,
+        control: {
+          type: "text",
+          key: "apiKey",
+          placeholder: tr.apiKeyPlaceholder
+        }
+      },
+      {
+        name: tr.maxSynonymsName,
+        desc: tr.maxSynonymsDesc,
+        control: {
+          type: "slider",
+          key: "maxSynonyms",
+          min: 3,
+          max: 25,
+          step: 1
+        }
+      }
+    ];
+  }
   async setControlValue(key, value) {
     switch (key) {
       case "uiLanguage":
@@ -1176,10 +1260,7 @@ var SynonymerSettingTab = class extends import_obsidian4.PluginSettingTab {
     new import_obsidian4.Setting(containerEl).setName(tr.uiLanguageName).setDesc(tr.uiLanguageDesc).addDropdown((dropdown) => dropdown.addOption("en", tr.uiLanguageEnglish).addOption("sv", tr.uiLanguageSwedish).setValue(this.plugin.settings.uiLanguage).onChange((value) => {
       this.plugin.settings.uiLanguage = value;
       this.plugin.settings.apiSource = value === "sv" ? "svenska_se" : "thesaurus_com";
-      void (async () => {
-        await this.plugin.saveSettings();
-        this.display();
-      })();
+      void this.saveSettingsAndRefresh();
     }));
     const languages = [...this.plugin.availableDictionaryLanguages];
     if (!languages.includes(this.plugin.settings.selectedLanguage) && this.plugin.selectedDictionaryAvailable) {
@@ -1198,10 +1279,7 @@ var SynonymerSettingTab = class extends import_obsidian4.PluginSettingTab {
       }
       dropdown.setValue(selectedLanguage).onChange((value) => {
         this.plugin.settings.selectedLanguage = value;
-        void (async () => {
-          await this.plugin.saveSettings();
-          new import_obsidian4.Notice(tr.reloadPluginNotice);
-        })();
+        void this.saveSettingsAndNotify(tr);
       });
     });
     new import_obsidian4.Setting(containerEl).setName(tr.enableOnlineName).setDesc(tr.enableOnlineDesc).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableOnlineLookup).onChange((value) => {

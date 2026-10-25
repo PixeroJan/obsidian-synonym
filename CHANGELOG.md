@@ -3,6 +3,14 @@
 All notable changes to the Synonym plugin are documented here.
 
 
+## [1.0.11]
+
+### Fixed
+
+- Added declarative settings definitions so plugin settings appear in Obsidian 1.13.0 and later settings search.
+- Fixed settings callbacks so they return void while asynchronous persistence runs separately.
+
+
 ## [1.0.10]
 
 ### Fixed

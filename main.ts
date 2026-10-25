@@ -6,6 +6,16 @@ import { AssetDictionaryLoader } from './assetDictionaryLoader';
 import { CustomDictionaryManager } from './customDictionaryManager';
 import { t, Translations } from './i18n';
 
+type DeclarativeSettingDefinition = {
+	name: string;
+	desc?: string;
+	control:
+		| { type: 'toggle'; key: string }
+		| { type: 'dropdown'; key: string; options: Record<string, string> }
+		| { type: 'text'; key: string; placeholder?: string }
+		| { type: 'slider'; key: string; min: number; max: number; step: number };
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -392,6 +402,95 @@ class SynonymerSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
+	private async saveSettingsAndRefresh(): Promise<void> {
+		await this.plugin.saveSettings();
+		this.display();
+	}
+
+	private async saveSettingsAndNotify(tr: Translations): Promise<void> {
+		await this.plugin.saveSettings();
+		new Notice(tr.reloadPluginNotice);
+	}
+
+	getControlValue(key: string): unknown {
+		return (this.plugin.settings as unknown as Record<string, unknown>)[key];
+	}
+
+	getSettingDefinitions(): DeclarativeSettingDefinition[] {
+		const tr = t(this.plugin.settings.uiLanguage);
+		const languages = [...this.plugin.availableDictionaryLanguages];
+		if (!languages.includes(this.plugin.settings.selectedLanguage) && this.plugin.selectedDictionaryAvailable) {
+			languages.push(this.plugin.settings.selectedLanguage);
+		}
+
+		return [
+			{
+				name: tr.uiLanguageName,
+				desc: tr.uiLanguageDesc,
+				control: {
+					type: 'dropdown',
+					key: 'uiLanguage',
+					options: {
+						en: tr.uiLanguageEnglish,
+						sv: tr.uiLanguageSwedish
+					}
+				}
+			},
+			{
+				name: tr.dictLanguageName,
+				desc: tr.dictLanguageDesc,
+				control: {
+					type: 'dropdown',
+					key: 'selectedLanguage',
+					options: languages.reduce<Record<string, string>>((options, language) => {
+						options[language] = language;
+						return options;
+					}, {})
+				}
+			},
+			{
+				name: tr.enableOnlineName,
+				desc: tr.enableOnlineDesc,
+				control: {
+					type: 'toggle',
+					key: 'enableOnlineLookup'
+				}
+			},
+			{
+				name: tr.onlineSourceName,
+				desc: tr.onlineSourceDesc,
+				control: {
+					type: 'dropdown',
+					key: 'apiSource',
+					options: {
+						thesaurus_com: tr.onlineSourceThesaurus,
+						svenska_se: tr.onlineSourceSwedish
+					}
+				}
+			},
+			{
+				name: tr.apiKeyName,
+				desc: tr.apiKeyDesc,
+				control: {
+					type: 'text',
+					key: 'apiKey',
+					placeholder: tr.apiKeyPlaceholder
+				}
+			},
+			{
+				name: tr.maxSynonymsName,
+				desc: tr.maxSynonymsDesc,
+				control: {
+					type: 'slider',
+					key: 'maxSynonyms',
+					min: 3,
+					max: 25,
+					step: 1
+				}
+			}
+		];
+	}
+
 	async setControlValue(key: string, value: unknown): Promise<void> {
 		switch (key) {
 			case 'uiLanguage':
@@ -454,15 +553,11 @@ class SynonymerSettingTab extends PluginSettingTab {
 				.addOption('en', tr.uiLanguageEnglish)
 				.addOption('sv', tr.uiLanguageSwedish)
 				.setValue(this.plugin.settings.uiLanguage)
-				.onChange((value: string) => {
+				.onChange((value: string): void => {
 					this.plugin.settings.uiLanguage = value as 'en' | 'sv';
 					// Also switch online source to match UI language
 					this.plugin.settings.apiSource = value === 'sv' ? 'svenska_se' : 'thesaurus_com';
-					void (async () => {
-						await this.plugin.saveSettings();
-						// Re-render settings tab with new language
-						this.display();
-					})();
+					void this.saveSettingsAndRefresh();
 				}));
 
 		// Dictionary language selection
@@ -490,12 +585,9 @@ class SynonymerSettingTab extends PluginSettingTab {
 					void this.plugin.saveSettings();
 				}
 
-				dropdown.setValue(selectedLanguage).onChange((value) => {
+				dropdown.setValue(selectedLanguage).onChange((value): void => {
 					this.plugin.settings.selectedLanguage = value;
-					void (async () => {
-						await this.plugin.saveSettings();
-						new Notice(tr.reloadPluginNotice);
-					})();
+					void this.saveSettingsAndNotify(tr);
 				});
 			});
 
@@ -504,7 +596,7 @@ class SynonymerSettingTab extends PluginSettingTab {
 			.setDesc(tr.enableOnlineDesc)
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enableOnlineLookup)
-				.onChange((value) => {
+				.onChange((value): void => {
 					this.plugin.settings.enableOnlineLookup = value;
 					void this.plugin.saveSettings();
 				}));
@@ -516,7 +608,7 @@ class SynonymerSettingTab extends PluginSettingTab {
 				.addOption('thesaurus_com', tr.onlineSourceThesaurus)
 				.addOption('svenska_se', tr.onlineSourceSwedish)
 				.setValue(this.plugin.settings.apiSource)
-				.onChange((value) => {
+				.onChange((value): void => {
 					this.plugin.settings.apiSource = value;
 					void this.plugin.saveSettings();
 				}));
@@ -527,7 +619,7 @@ class SynonymerSettingTab extends PluginSettingTab {
 			.addText(text => text
 				.setPlaceholder(tr.apiKeyPlaceholder)
 				.setValue(this.plugin.settings.apiKey)
-				.onChange((value) => {
+				.onChange((value): void => {
 					this.plugin.settings.apiKey = value;
 					void this.plugin.saveSettings();
 				}));
@@ -539,7 +631,7 @@ class SynonymerSettingTab extends PluginSettingTab {
 				.setLimits(3, 25, 1)
 				.setValue(this.plugin.settings.maxSynonyms)
 				.setDynamicTooltip()
-				.onChange((value) => {
+				.onChange((value): void => {
 					this.plugin.settings.maxSynonyms = value;
 					void this.plugin.saveSettings();
 				}));
