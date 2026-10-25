@@ -3,6 +3,15 @@
 All notable changes to the Synonym plugin are documented here.
 
 
+## [1.0.10]
+
+### Fixed
+
+- Fixed local dictionary discovery on Windows when Obsidian returns file paths with backslash separators.
+- Fixed the settings dictionary dropdown callback so it does not return a Promise where Obsidian expects a void callback.
+- Fixed dictionary discovery to support arbitrary language-coded `.dat` files in the assets folder.
+- Fixed the settings dropdown so discovered dictionaries, including locally available files omitted by directory enumeration, are shown reliably.
+
 ## [1.0.9]
 
 ### Fixed

@@ -524,7 +524,34 @@ var AssetDictionaryLoader = class {
     this.app = app;
     this.basePath = (0, import_obsidian2.normalizePath)(`${pluginDir}/assets`);
   }
+  async resolveBasePath() {
+    const pathParts = this.basePath.split("/").filter(Boolean);
+    const pluginId = pathParts.length >= 2 ? pathParts[pathParts.length - 2] : "";
+    const candidates = [
+      this.basePath,
+      (0, import_obsidian2.normalizePath)(`${this.app.vault.configDir}/plugins/${pluginId}/assets`),
+      (0, import_obsidian2.normalizePath)(`.obsidian/plugins/${pluginId}/assets`),
+      (0, import_obsidian2.normalizePath)(`plugins/${pluginId}/assets`)
+    ].filter((path, index, paths) => path && paths.indexOf(path) === index);
+    for (const candidate of candidates) {
+      try {
+        const files = await this.app.vault.adapter.list(candidate);
+        if (files.files.length > 0 || files.folders.length > 0) {
+          this.basePath = candidate;
+          return candidate;
+        }
+      } catch (e) {
+      }
+    }
+    return this.basePath;
+  }
+  async hasDictionary(languageCode) {
+    await this.resolveBasePath();
+    const filePath = (0, import_obsidian2.normalizePath)(`${this.basePath}/th_${languageCode}_v2.dat`);
+    return this.app.vault.adapter.exists(filePath);
+  }
   async loadDictionary(languageCode) {
+    await this.resolveBasePath();
     if (languageCode === "sv_SE") {
       const xmlPath = (0, import_obsidian2.normalizePath)(`${this.basePath}/Synlex.xml`);
       try {
@@ -610,16 +637,17 @@ var AssetDictionaryLoader = class {
   async getAvailableLanguages() {
     const languages = [];
     try {
-      const datPattern = /th_([^_]+_[^_]+)_v2\.dat$/;
+      const datPattern = /^th_(.+)_v2\.dat$/i;
+      await this.resolveBasePath();
       const files = await this.app.vault.adapter.list(this.basePath);
       for (const file of files.files) {
-        const fileName = file.split("/").pop() || file.split("\\").pop() || file;
+        const fileName = (file.split(/[\\/]/).pop() || file).trim();
         if (fileName === "Synlex.xml") {
           languages.push("sv_SE");
         }
       }
       for (const file of files.files) {
-        const fileName = file.split("/").pop() || file.split("\\").pop() || file;
+        const fileName = (file.split(/[\\/]/).pop() || file).trim();
         const match = fileName.match(datPattern);
         if (match && match[1]) {
           if (match[1] !== "sv_SE" || !languages.includes("sv_SE")) {
@@ -887,12 +915,20 @@ var AddSynonymModal = class extends import_obsidian4.Modal {
   }
 };
 var SynonymerPlugin = class extends import_obsidian4.Plugin {
+  constructor() {
+    super(...arguments);
+    this.availableDictionaryLanguages = [];
+    this.selectedDictionaryAvailable = false;
+  }
   async onload() {
     await this.loadSettings();
     const pluginDir = this.getPluginDir();
     const assetLoader = new AssetDictionaryLoader(this.app, pluginDir);
     const availableLanguages = await assetLoader.getAvailableLanguages();
-    if (availableLanguages.length > 0 && !availableLanguages.includes(this.settings.selectedLanguage)) {
+    this.availableDictionaryLanguages = [...availableLanguages];
+    const selectedLanguageAvailable = await assetLoader.hasDictionary(this.settings.selectedLanguage);
+    this.selectedDictionaryAvailable = availableLanguages.includes(this.settings.selectedLanguage) || selectedLanguageAvailable;
+    if (availableLanguages.length > 0 && !availableLanguages.includes(this.settings.selectedLanguage) && !selectedLanguageAvailable) {
       this.settings.selectedLanguage = availableLanguages[0];
       await this.saveSettings();
     }
@@ -954,7 +990,16 @@ var SynonymerPlugin = class extends import_obsidian4.Plugin {
     this.addSettingTab(new SynonymerSettingTab(this.app, this));
   }
   getPluginDir() {
-    return this.manifest.dir || (0, import_obsidian4.normalizePath)(`${this.app.vault.configDir}/plugins/${this.manifest.id}`);
+    const configDir = (0, import_obsidian4.normalizePath)(this.app.vault.configDir).replace(/\/+$/, "");
+    const canonicalDir = `${configDir}/plugins/${this.manifest.id}`;
+    const manifestDir = this.manifest.dir ? (0, import_obsidian4.normalizePath)(this.manifest.dir).replace(/\/+$/, "") : "";
+    if (manifestDir === canonicalDir) {
+      return manifestDir;
+    }
+    if (manifestDir === `plugins/${this.manifest.id}`) {
+      return `${configDir}/${manifestDir}`;
+    }
+    return (0, import_obsidian4.normalizePath)(canonicalDir);
   }
   getWordAtCursor(editor) {
     const cursor = editor.getCursor();
@@ -1079,74 +1124,6 @@ var SynonymerSettingTab = class extends import_obsidian4.PluginSettingTab {
     super(app, plugin);
     this.plugin = plugin;
   }
-  getSettingDefinitions() {
-    const tr = t(this.plugin.settings.uiLanguage);
-    return [
-      {
-        name: tr.uiLanguageName,
-        desc: tr.uiLanguageDesc,
-        control: {
-          type: "dropdown",
-          key: "uiLanguage",
-          options: {
-            en: tr.uiLanguageEnglish,
-            sv: tr.uiLanguageSwedish
-          }
-        }
-      },
-      {
-        name: tr.dictLanguageName,
-        desc: tr.dictLanguageDesc,
-        control: {
-          type: "dropdown",
-          key: "selectedLanguage",
-          options: {
-            en_US: "en_US",
-            sv_SE: "sv_SE"
-          }
-        }
-      },
-      {
-        name: tr.enableOnlineName,
-        desc: tr.enableOnlineDesc,
-        control: {
-          type: "toggle",
-          key: "enableOnlineLookup"
-        }
-      },
-      {
-        name: tr.onlineSourceName,
-        desc: tr.onlineSourceDesc,
-        control: {
-          type: "dropdown",
-          key: "apiSource",
-          options: {
-            thesaurus_com: tr.onlineSourceThesaurus,
-            svenska_se: tr.onlineSourceSwedish
-          }
-        }
-      },
-      {
-        name: tr.apiKeyName,
-        desc: tr.apiKeyDesc,
-        control: {
-          type: "text",
-          key: "apiKey"
-        }
-      },
-      {
-        name: tr.maxSynonymsName,
-        desc: tr.maxSynonymsDesc,
-        control: {
-          type: "slider",
-          key: "maxSynonyms",
-          min: 3,
-          max: 25,
-          step: 1
-        }
-      }
-    ];
-  }
   async setControlValue(key, value) {
     switch (key) {
       case "uiLanguage":
@@ -1196,55 +1173,52 @@ var SynonymerSettingTab = class extends import_obsidian4.PluginSettingTab {
     containerEl.empty();
     const tr = t(this.plugin.settings.uiLanguage);
     new import_obsidian4.Setting(containerEl).setName(tr.settingsHeading).setHeading();
-    new import_obsidian4.Setting(containerEl).setName(tr.uiLanguageName).setDesc(tr.uiLanguageDesc).addDropdown((dropdown) => dropdown.addOption("en", tr.uiLanguageEnglish).addOption("sv", tr.uiLanguageSwedish).setValue(this.plugin.settings.uiLanguage).onChange(async (value) => {
+    new import_obsidian4.Setting(containerEl).setName(tr.uiLanguageName).setDesc(tr.uiLanguageDesc).addDropdown((dropdown) => dropdown.addOption("en", tr.uiLanguageEnglish).addOption("sv", tr.uiLanguageSwedish).setValue(this.plugin.settings.uiLanguage).onChange((value) => {
       this.plugin.settings.uiLanguage = value;
       this.plugin.settings.apiSource = value === "sv" ? "svenska_se" : "thesaurus_com";
-      await this.plugin.saveSettings();
-      this.display();
+      void (async () => {
+        await this.plugin.saveSettings();
+        this.display();
+      })();
     }));
-    let dictionaryDropdown;
+    const languages = [...this.plugin.availableDictionaryLanguages];
+    if (!languages.includes(this.plugin.settings.selectedLanguage) && this.plugin.selectedDictionaryAvailable) {
+      languages.push(this.plugin.settings.selectedLanguage);
+    }
     new import_obsidian4.Setting(containerEl).setName(tr.dictLanguageName).setDesc(tr.dictLanguageDesc).addDropdown((dropdown) => {
-      dictionaryDropdown = dropdown;
-      dropdown.setDisabled(true);
-    });
-    void (async () => {
-      const loader = new AssetDictionaryLoader(this.app, this.plugin.getPluginDir());
-      const languages = await loader.getAvailableLanguages();
-      const dropdown = dictionaryDropdown;
-      if (!dropdown)
-        return;
       if (languages.length === 0) {
-        dropdown.addOption("", tr.noDictionariesFound);
-        dropdown.setValue("");
+        dropdown.addOption("", tr.noDictionariesFound).setValue("");
         return;
       }
       languages.forEach((language) => dropdown.addOption(language, language));
       const selectedLanguage = languages.includes(this.plugin.settings.selectedLanguage) ? this.plugin.settings.selectedLanguage : languages[0];
       if (selectedLanguage !== this.plugin.settings.selectedLanguage) {
         this.plugin.settings.selectedLanguage = selectedLanguage;
-        await this.plugin.saveSettings();
+        void this.plugin.saveSettings();
       }
-      dropdown.setValue(selectedLanguage).setDisabled(false).onChange(async (value) => {
+      dropdown.setValue(selectedLanguage).onChange((value) => {
         this.plugin.settings.selectedLanguage = value;
-        await this.plugin.saveSettings();
-        new import_obsidian4.Notice(tr.reloadPluginNotice);
+        void (async () => {
+          await this.plugin.saveSettings();
+          new import_obsidian4.Notice(tr.reloadPluginNotice);
+        })();
       });
-    })();
-    new import_obsidian4.Setting(containerEl).setName(tr.enableOnlineName).setDesc(tr.enableOnlineDesc).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableOnlineLookup).onChange(async (value) => {
+    });
+    new import_obsidian4.Setting(containerEl).setName(tr.enableOnlineName).setDesc(tr.enableOnlineDesc).addToggle((toggle) => toggle.setValue(this.plugin.settings.enableOnlineLookup).onChange((value) => {
       this.plugin.settings.enableOnlineLookup = value;
-      await this.plugin.saveSettings();
+      void this.plugin.saveSettings();
     }));
-    new import_obsidian4.Setting(containerEl).setName(tr.onlineSourceName).setDesc(tr.onlineSourceDesc).addDropdown((dropdown) => dropdown.addOption("thesaurus_com", tr.onlineSourceThesaurus).addOption("svenska_se", tr.onlineSourceSwedish).setValue(this.plugin.settings.apiSource).onChange(async (value) => {
+    new import_obsidian4.Setting(containerEl).setName(tr.onlineSourceName).setDesc(tr.onlineSourceDesc).addDropdown((dropdown) => dropdown.addOption("thesaurus_com", tr.onlineSourceThesaurus).addOption("svenska_se", tr.onlineSourceSwedish).setValue(this.plugin.settings.apiSource).onChange((value) => {
       this.plugin.settings.apiSource = value;
-      await this.plugin.saveSettings();
+      void this.plugin.saveSettings();
     }));
-    new import_obsidian4.Setting(containerEl).setName(tr.apiKeyName).setDesc(tr.apiKeyDesc).addText((text) => text.setPlaceholder(tr.apiKeyPlaceholder).setValue(this.plugin.settings.apiKey).onChange(async (value) => {
+    new import_obsidian4.Setting(containerEl).setName(tr.apiKeyName).setDesc(tr.apiKeyDesc).addText((text) => text.setPlaceholder(tr.apiKeyPlaceholder).setValue(this.plugin.settings.apiKey).onChange((value) => {
       this.plugin.settings.apiKey = value;
-      await this.plugin.saveSettings();
+      void this.plugin.saveSettings();
     }));
-    new import_obsidian4.Setting(containerEl).setName(tr.maxSynonymsName).setDesc(tr.maxSynonymsDesc).addSlider((slider) => slider.setLimits(3, 25, 1).setValue(this.plugin.settings.maxSynonyms).setDynamicTooltip().onChange(async (value) => {
+    new import_obsidian4.Setting(containerEl).setName(tr.maxSynonymsName).setDesc(tr.maxSynonymsDesc).addSlider((slider) => slider.setLimits(3, 25, 1).setValue(this.plugin.settings.maxSynonyms).setDynamicTooltip().onChange((value) => {
       this.plugin.settings.maxSynonyms = value;
-      await this.plugin.saveSettings();
+      void this.plugin.saveSettings();
     }));
   }
 };

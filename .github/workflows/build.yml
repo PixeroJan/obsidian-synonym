@@ -71,11 +71,6 @@ jobs:
           name: synonym-plugin
           path: release
 
-      - name: Package plugin files
-        run: |
-          cd release
-          zip -r ../obsidian-synonym.zip .
-
       - name: Publish or update GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -86,11 +81,14 @@ jobs:
 
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             echo "Updating existing release $RELEASE_TAG"
+            gh release delete-asset "$RELEASE_TAG" \
+              "obsidian-synonym.zip" \
+              --repo "$GITHUB_REPOSITORY" \
+              --yes || true
             gh release upload "$RELEASE_TAG" \
               "release/main.js" \
               "release/manifest.json" \
               "release/styles.css" \
-              "obsidian-synonym.zip" \
               --repo "$GITHUB_REPOSITORY" \
               --clobber
             gh release edit "$RELEASE_TAG" \
@@ -102,7 +100,6 @@ jobs:
               "release/main.js" \
               "release/manifest.json" \
               "release/styles.css" \
-              "obsidian-synonym.zip" \
               --repo "$GITHUB_REPOSITORY" \
               --target "$TARGET_SHA" \
               --title "Synonym $PLUGIN_VERSION" \

@@ -14,7 +14,40 @@ export class AssetDictionaryLoader {
         this.basePath = normalizePath(`${pluginDir}/assets`);
     }
 
+    private async resolveBasePath(): Promise<string> {
+        const pathParts = this.basePath.split('/').filter(Boolean);
+        const pluginId = pathParts.length >= 2 ? pathParts[pathParts.length - 2] : '';
+        const candidates = [
+            this.basePath,
+            normalizePath(`${this.app.vault.configDir}/plugins/${pluginId}/assets`),
+            normalizePath(`.obsidian/plugins/${pluginId}/assets`),
+            normalizePath(`plugins/${pluginId}/assets`)
+        ].filter((path, index, paths) => path && paths.indexOf(path) === index);
+
+        for (const candidate of candidates) {
+            try {
+                const files = await this.app.vault.adapter.list(candidate);
+                if (files.files.length > 0 || files.folders.length > 0) {
+                    this.basePath = candidate;
+                    return candidate;
+                }
+            } catch {
+                // Try the next vault-relative candidate.
+            }
+        }
+
+        return this.basePath;
+    }
+
+    async hasDictionary(languageCode: string): Promise<boolean> {
+        await this.resolveBasePath();
+        const filePath = normalizePath(`${this.basePath}/th_${languageCode}_v2.dat`);
+        return this.app.vault.adapter.exists(filePath);
+    }
+
     async loadDictionary(languageCode: string): Promise<AssetDictionary> {
+        await this.resolveBasePath();
+
         // For Swedish, try Synlex.xml first
         if (languageCode === 'sv_SE') {
             const xmlPath = normalizePath(`${this.basePath}/Synlex.xml`);
@@ -138,14 +171,15 @@ export class AssetDictionaryLoader {
         
         try {
             // Read files directly from the assets folder using adapter
-            const datPattern = /th_([^_]+_[^_]+)_v2\.dat$/;
+            const datPattern = /^th_(.+)_v2\.dat$/i;
             
             // List files in the assets directory
+            await this.resolveBasePath();
             const files = await this.app.vault.adapter.list(this.basePath);
             
             // Check for Synlex.xml (Swedish)
             for (const file of files.files) {
-                const fileName = file.split('/').pop() || file.split('\\').pop() || file;
+                const fileName = (file.split(/[\\/]/).pop() || file).trim();
                 if (fileName === 'Synlex.xml') {
                     languages.push('sv_SE');
                 }
@@ -153,7 +187,7 @@ export class AssetDictionaryLoader {
             
             // Check .dat files
             for (const file of files.files) {
-                const fileName = file.split('/').pop() || file.split('\\').pop() || file;
+                const fileName = (file.split(/[\\/]/).pop() || file).trim();
                 const match = fileName.match(datPattern);
                 if (match && match[1]) {
                     // Don't add sv_SE twice if we already found Synlex.xml
@@ -162,6 +196,7 @@ export class AssetDictionaryLoader {
                     }
                 }
             }
+
         } catch (error) {
             console.error('Error scanning for language files:', error);
         }
